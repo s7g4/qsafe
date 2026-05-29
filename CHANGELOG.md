@@ -2,7 +2,20 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-05-30
+
+### Added
+- Created database migration schema in [host-server/migrations/0001_init.sql](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/migrations/0001_init.sql) for automated SQLx migrations.
+- Created [docs/adr/0004-disabling-test-harness-for-bare-metal-binaries.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0004-disabling-test-harness-for-bare-metal-binaries.md) to record host test harness target configurations.
+- Created [docs/adr/0005-database-migrations.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0005-database-migrations.md) to document automated SQLx database migration strategy.
+
+### Changed
+- Configured [firmware/Cargo.toml](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/firmware/Cargo.toml) binary target with `test = false` and `bench = false` to resolve host-side workspace test linking errors (`LNK1561`).
+- Modified [Database::new](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs#L48-L56) inside [host-server/src/database.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs) to run database migrations automatically.
+- Removed legacy `create_tables` logic from [host-server/src/database.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs) and [host-server/src/main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs).
+
 ## [0.1.0] - 2026-05-29
+
 
 ### Added
 - Created `PROJECT_AUDIT.md` mapping legacy technical debt and vulnerability vectors.

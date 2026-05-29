@@ -53,7 +53,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize services
     let db = Database::new(&config.database_url).await?;
-    db.create_tables().await?;
 
     let auth = AuthService::new(config.jwt_secret.clone());
     let crypto = Arc::new(Mutex::new(CryptoEngine::new()));

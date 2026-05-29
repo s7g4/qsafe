@@ -167,3 +167,21 @@ Resolve workspace-level host-side linking failures when compiling tests for bare
 - **Files Created**: 1 (`docs/adr/0004-disabling-test-harness-for-bare-metal-binaries.md`).
 - **Build Status**: 100% clean verification pass for workspace-level tests.
 
+## 2026-05-29: Implementing SQLx Database Migrations
+
+### Goal
+Transition database schema definition and initialization to compilation-guaranteed SQLx migrations.
+
+### Work Completed
+- Extracted inline SQL schema creation queries into a versioned migration: [0001_init.sql](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/migrations/0001_init.sql).
+- Modified [Database::new](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs#L48-L56) to execute `sqlx::migrate!().run(&pool).await?` on startup.
+- Removed legacy `create_tables` logic from [database.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs) and [main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs).
+- Documented design decisions in [docs/adr/0005-database-migrations.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0005-database-migrations.md).
+- Verified successful workspace compilation and test suite run.
+
+### Metrics
+- **Files Modified**: 2 (`host-server/src/database.rs`, `host-server/src/main.rs`).
+- **Files Created**: 2 (`host-server/migrations/0001_init.sql`, `docs/adr/0005-database-migrations.md`).
+- **Build Status**: 100% clean compilation.
+
+
