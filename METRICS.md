@@ -25,3 +25,20 @@ This document tracks system performance benchmarks, target metrics, and verifica
 ## 3. Continuous Integration Verification Targets
 - **Code Coverage**: >= 80% coverage across all computational and API modules (tracked via `cargo-tarpaulin`).
 - **Static Analysis Compliance**: 0 compiler warnings and 0 Clippy lints (`#[deny(warnings)]`).
+
+## 4. Testing & Verification Strategy
+
+We implement a multi-tiered testing strategy to guarantee security, protocol accuracy, and stability across the workspace.
+
+### Unit Testing
+- **Cryptographic Engine**: Unit tests inside `host-server/src/crypto.rs` verify key generation, encapsulation, signatures, and decapsulation algorithms.
+- **State Parsers & Utilities**: Tests inside the `common` library crate verify TLV serial parsing, binary packet serialization, and CRC-16 computation limits.
+- **Mock DB Transactors**: Database unit tests utilize SQLx's test transactor macro (`#[sqlx::test]`), wrapping every test in a transaction that rolls back on completion to keep local databases clean.
+
+### Integration Testing
+- **API Flow verification**: Integration test suites inside `host-server/tests/` spin up a test instance of the Axum service using temporary DB configurations to run full registration, login, and token rotation pipelines.
+- **WebSocket Route Tests**: Test scripts spawn multiple async tasks running WebSocket client streams, verifying frame delivery guarantees, offline queues, and message dispatching latencies.
+
+### Hardware-in-the-Loop (HIL) Simulation Tests
+- **Mock Serial Gateway**: To run integrations without physical micro-controllers, the host-side hardware module integrates a virtual serial mock.
+- **Edge-Case Simulation**: The simulator mocks physical network drops, corrupt CRC-16 packets, and timeouts. This verifies that the host serial driver falls back to software engines safely under device failures.

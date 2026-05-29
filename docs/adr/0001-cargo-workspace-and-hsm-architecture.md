@@ -1,7 +1,7 @@
 # ADR 0001: Cargo Workspace & HSM Architecture Integration
 
 ## Status
-Proposed
+Approved
 
 ## Context
 The legacy application was built as a single monolithic Rust crate containing the web server logic, database client code, and simulated cryptography routines in a single target binary. 

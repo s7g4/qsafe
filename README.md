@@ -16,20 +16,19 @@ The project is organized into a Cargo Workspace:
 - [x] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
 - [x] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
 - [x] **Engineering Roadmap**: Structuring milestones, deliverables, metrics, and commit targets.
-- [x] **Documentation System**: Initializing README, ADRs, and metrics registers.
+- [x] **Documentation & Observability System**: Initializing README, ADRs, metrics registers, and tracing specs.
 - [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
 - [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
 - [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
 - [ ] **WebSocket Registry**: Rebuilding the async actor registry to route client messages securely.
-- [ ] **Telemetry & Observability**: Adding structured JSON logging and Prometheus metrics.
 
 ## Documentation Index
 - **[PROJECT_AUDIT.md](PROJECT_AUDIT.md)**: Catalog of legacy tech debt, broken stubs, and vulnerabilities.
 - **[VISION.md](VISION.md)**: Product positioning, threat modeling, and HSM hardware specifications.
 - **[RESEARCH.md](RESEARCH.md)**: Cryptographic algorithms, TLV serial framing, and Embassy runtime specs.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, and hardware integration boundaries.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, hardware integration boundaries, and observability metrics.
 - **[ROADMAP.md](ROADMAP.md)**: Development checkpoints, success criteria, and expected commit targets.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
-- **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, and binary overhead budgets.
+- **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, and test/verification strategy.
 - **[docs/adr/0001-cargo-workspace-and-hsm-architecture.md](docs/adr/0001-cargo-workspace-and-hsm-architecture.md)**: Design choices log.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.

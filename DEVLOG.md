@@ -92,3 +92,16 @@ Establish the unified documentation layout, metrics logs, change tracking record
 ### Metrics
 - **Files Created**: 3 (`CHANGELOG.md`, `METRICS.md`, `docs/adr/0001-cargo-workspace-and-hsm-architecture.md`).
 - **Code Changes**: 0 lines.
+
+## 2026-05-29: Observability Specifications & Testing Strategy Formulation
+
+### Goal
+Define the monitoring framework and testing strategy blueprints to measure system stability and verify cryptographic correctness.
+
+### Work Completed
+- Integrated **Observability Specs** directly into `ARCHITECTURE.md`, outlining the `tracing` JSON logging framework, Prometheus metrics, and downstream status indicators in `/api/health`.
+- Integrated the **Testing Strategy** directly into `METRICS.md`, detailing unit testing bounds, database rollbacks, integration routes, and HIL simulation mock checks.
+
+### Metrics
+- **Files Updated**: 2 (`ARCHITECTURE.md`, `METRICS.md`).
+- **Code Changes**: 0 lines.

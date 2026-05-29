@@ -1,6 +1,6 @@
 # System Architecture: Q-Safe Gateway
 
-This document outlines the software and hardware architecture for the Q-Safe secure messaging system. It defines the workspace boundaries, data flows, communication protocols, and failure modes.
+This document outlines the software and hardware architecture for the Q-Safe secure messaging system. It defines the workspace boundaries, data flows, communication protocols, failure modes, and observability specs.
 
 ## 1. High-Level Architecture
 
@@ -95,3 +95,25 @@ sequenceDiagram
 - **Database Connection Failure**:
   * *Impact*: Endpoint handlers fail to verify sessions or save messaging history.
   * *Mitigation*: Integrate SQLx connection pooling with retry limits and health-checking loops to prevent system-wide lockups.
+
+## 5. Observability Specifications
+
+To manage, trace, and debug the system in production, Q-Safe implements three core observability layers:
+
+### Structured Logging & Tracing
+- **Framework**: Built on the `tracing` and `tracing-subscriber` crates.
+- **Output Format**: JSON formatted logs printed to standard output for ingestion by log collectors.
+- **Correlation**: Every HTTP request and active WebSocket session generates a unique `request_id` context. This ID is propagated through the task runtime to correlate log lines for database queries, handshake steps, and frame dispatch routines.
+- **Safety Bounds**: The logging engine enforces a strict filter: zero raw password data, session keys, or raw cryptographic secrets are logged under any severity level.
+
+### Metrics Exporter
+- **Endpoint**: Exposes `/metrics` in standard Prometheus text format.
+- **Custom Instrumentation**:
+  - `qsafe_websocket_active_connections`: Gauge tracking active client WebSocket sockets.
+  - `qsafe_hsm_request_duration_seconds`: Histogram tracking the execution latency of USB HSM operations.
+  - `qsafe_api_http_request_duration_seconds`: Histogram tracking Axum routing latency.
+
+### System Health Monitoring
+- **Endpoint**: `/api/health` returning details on downstream system states:
+  - **Database Status**: Connective health checks via SQLx pool probes.
+  - **HSM Status**: Checking if the serial driver successfully reads from the target USB port or is running on software fallback.
