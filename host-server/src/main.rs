@@ -50,8 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let auth = AuthService::new(jwt_secret);
     let crypto = Arc::new(Mutex::new(CryptoEngine::new()));
-    let qkd = Arc::new(Mutex::new(QKDProtocol::new(12345)));
-    let qrng = Arc::new(Mutex::new(QRNG::new(67890)));
+    let qkd = Arc::new(Mutex::new(QKDProtocol::new()));
+    let qrng = Arc::new(Mutex::new(QRNG::new()));
     let connected_clients = Arc::new(Mutex::new(HashMap::new()));
 
     let state = Arc::new(AppState {

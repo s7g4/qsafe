@@ -13,8 +13,8 @@ The project is organized into a Cargo Workspace:
 ### Development Roadmap
 - [x] **Project Audit & Security Baseline**: Audit legacy database initialization, connection handling, and cryptographic stubs.
 - [x] **Product Vision & Threat Model**: Formulate the threat model (HNDL attacks, host memory vulnerability) and hardware token design.
-- [ ] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
-- [ ] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
+- [x] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
+- [x] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
 - [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
 - [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
 - [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
@@ -24,4 +24,6 @@ The project is organized into a Cargo Workspace:
 ## Documentation Index
 - **[PROJECT_AUDIT.md](PROJECT_AUDIT.md)**: Catalog of legacy tech debt, broken stubs, and vulnerabilities.
 - **[VISION.md](VISION.md)**: Product positioning, threat modeling, and HSM hardware specifications.
+- **[RESEARCH.md](RESEARCH.md)**: Cryptographic algorithms, TLV serial framing, and Embassy runtime specs.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, and hardware integration boundaries.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.

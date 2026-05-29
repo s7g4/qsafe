@@ -59,12 +59,12 @@ impl UI {
 
     /// Simulate quantum handshake animation
     pub fn animate_quantum_handshake(&self) {
-        self.log("🔐 Initiating Quantum Handshake...");
-        self.log("📡 Preparing quantum bits...");
-        self.log("🔄 Measuring in random bases...");
-        self.log("🔍 Detecting eavesdropping...");
-        self.log("✅ Key exchange successful!");
-        self.log("🔒 Secure channel established.");
+        self.log("Initiating Quantum Handshake...");
+        self.log("Preparing quantum bits...");
+        self.log("Measuring in random bases...");
+        self.log("Detecting eavesdropping...");
+        self.log("Key exchange successful!");
+        self.log("Secure channel established.");
     }
 
     /// Display chat interface (simplified text-based)

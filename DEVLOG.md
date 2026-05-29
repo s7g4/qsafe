@@ -38,3 +38,36 @@ Define the strategic direction of the project, framing it as a refactoring case 
 ### Metrics
 - **Files Created**: 1 (`VISION.md`).
 - **Code Changes**: 0 lines.
+
+---
+
+## 2026-05-29: Cryptographic & Embedded Protocol Research
+
+### Goal
+Document the technical specifications for the hybrid key exchange, serial packet framing layout, and the embedded asynchronous runtime environment.
+
+### Work Completed
+- Researched ML-KEM-768 payload sizes and defined the HKDF-SHA3-256 derivation scheme for the hybrid session key.
+- Designed the Type-Length-Value (TLV) serial packet structure with CRC-16-CCITT validation checks.
+- Formulated the Embassy framework target setup for the Raspberry Pi Pico (RP2040) firmware architecture.
+
+### Metrics
+- **Files Created**: 1 (`RESEARCH.md`).
+- **Code Changes**: 0 lines.
+
+---
+
+## 2026-05-29: System Architecture & Cargo Workspace Redesign
+
+### Goal
+Define the decoupled system architecture boundaries, communication sequence protocols, and structural layouts for the multi-crate Cargo Workspace.
+
+### Work Completed
+- Authored `ARCHITECTURE.md` detailing the workspace directory boundaries (`host-server`, `firmware`, `common`).
+- Modeled the system topology showing API-to-WebSocket transitions, hybrid cryptographic engines, and the USB serial connection to the RP2040 microcontroller.
+- Designed the handshake communication sequence over USB-CDC using a sequence flow diagram.
+- Cataloged hardware transmission failure mitigation metrics (CRC-16 validation and software fallbacks).
+
+### Metrics
+- **Files Created**: 1 (`ARCHITECTURE.md`).
+- **Code Changes**: 0 lines.

@@ -13,15 +13,11 @@ Q-Safe addresses both issues:
 1. **Hybrid Cryptography**: It runs Curve25519 (classical) and ML-KEM-768 (post-quantum) in parallel to protect data against retro-active quantum decryption.
 2. **Hardware Security Module (HSM) Isolation**: It moves private key storage and Kyber decapsulation out of the host's memory onto an external micro-controller (like an RP2040) running bare-metal Rust. The host never sees the private key; it only sends ciphertexts over USB and receives derived shared secrets.
 
----
-
 ## Target Audience & Portfolio Goals
-This project is designed to show hiring managers and systems architects that I can build software across the entire systems stack:
+This project is designed to show systems architects that I can build software across the entire systems stack:
 - **Low-Level Firmware**: Designing bare-metal Rust drivers and parsing USB packet streams on a microcontroller.
 - **Systems Engineering**: Implementing custom protocol framing (TLV), memory safety (zeroization), and concurrency management in Rust.
 - **Backend Architecture**: Managing state routing, database migrations, and real-time WebSocket communication in a multi-threaded server.
-
----
 
 ## What Makes it Unique?
 Instead of just building another standard web backend or a disconnected firmware stub, this project integrates the two. It connects a real-time HTTP/WebSocket server to a hardware security token (simulated locally for automated testing), showing a clean, end-to-end security architecture.
