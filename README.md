@@ -1,21 +1,27 @@
 # Q-Safe: Quantum-Safe Messaging Gateway
 
-This repository contains the Q-Safe secure messaging gateway. 
+Q-Safe is a secure messaging gateway built in Rust that integrates post-quantum hybrid cryptography with physical Hardware Security Modules (HSMs). 
 
-Originally built as a student hobby project exploring basic Rust networking and quantum key distribution simulations, this project is being systematically refactored into an industry-grade systems portfolio project, integrating bare-metal Embedded Rust with post-quantum cryptography.
+Originally built as a student hobby project exploring basic Rust networking and simulated cryptography, this project is being systematically refactored into an industry-grade systems portfolio project, integrating bare-metal Embedded Rust with post-quantum cryptography.
 
-## Project Phases & Refactoring Timeline
-- [ ] **Phase 0 — Project Audit**: Analysis of the current student prototype codebase. (In Progress)
-- [ ] **Phase 1 — Project Repositioning**: Redefining vision and product goals.
-- [ ] **Phase 2 — Research Foundation**: Technical domain study (PQC, Embedded HAL, USB specs).
-- [ ] **Phase 3 — Architecture Redesign**: Component isolation and Cargo Workspace diagrams.
-- [ ] **Phase 4 — Engineering Roadmap**: Phase-by-phase deliverables checklist.
-- [ ] **Phase 5 — Documentation System**: Initializing README, ADRs, and metrics registers.
-- [ ] **Phase 6 — Observability**: Structuring tracing and telemetries.
-- [ ] **Phase 7 — Testing Strategy**: Implementing unit, integration, and mock simulations.
-- [ ] **Phase 8 — CI/CD**: Formatting, security scanning, and release pipelines.
-- [ ] **Phase 9 — Portfolio Packaging**: Metrics dashboards and final case studies.
+## Project Architecture & Roadmap
+The project is organized into a Cargo Workspace:
+- `host-server/`: The messaging backend built on Axum, managing WebSocket routing and SQLx storage.
+- `firmware/`: Bare-metal Embedded Rust firmware (targeting the RP2040 microcontroller) executing key decapsulations.
+- `common/`: Shared Type-Length-Value (TLV) packet definitions compiled for both host and device targets.
 
-## Current Documentation
-- **[PROJECT_AUDIT.md](PROJECT_AUDIT.md)**: Baseline audit report.
-- **[DEVLOG.md](DEVLOG.md)**: Active developer log tracking progress.
+### Development Roadmap
+- [x] **Project Audit & Security Baseline**: Audit legacy database initialization, connection handling, and cryptographic stubs.
+- [x] **Product Vision & Threat Model**: Formulate the threat model (HNDL attacks, host memory vulnerability) and hardware token design.
+- [ ] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
+- [ ] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
+- [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
+- [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
+- [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
+- [ ] **WebSocket Registry**: Rebuilding the async actor registry to route client messages securely.
+- [ ] **Telemetry & Observability**: Adding structured JSON logging and Prometheus metrics.
+
+## Documentation Index
+- **[PROJECT_AUDIT.md](PROJECT_AUDIT.md)**: Catalog of legacy tech debt, broken stubs, and vulnerabilities.
+- **[VISION.md](VISION.md)**: Product positioning, threat modeling, and HSM hardware specifications.
+- **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.
