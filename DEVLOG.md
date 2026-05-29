@@ -24,8 +24,6 @@ Audit the legacy Q-Safe codebase, identify security and architectural debt, and 
 - **Files Updated**: 1 (`README.md`).
 - **Code Changes**: 0 lines modified.
 
----
-
 ## 2026-05-29: Product Vision & Threat Model Definition
 
 ### Goal
@@ -38,8 +36,6 @@ Define the strategic direction of the project, framing it as a refactoring case 
 ### Metrics
 - **Files Created**: 1 (`VISION.md`).
 - **Code Changes**: 0 lines.
-
----
 
 ## 2026-05-29: Cryptographic & Embedded Protocol Research
 
@@ -55,8 +51,6 @@ Document the technical specifications for the hybrid key exchange, serial packet
 - **Files Created**: 1 (`RESEARCH.md`).
 - **Code Changes**: 0 lines.
 
----
-
 ## 2026-05-29: System Architecture & Cargo Workspace Redesign
 
 ### Goal
@@ -70,4 +64,31 @@ Define the decoupled system architecture boundaries, communication sequence prot
 
 ### Metrics
 - **Files Created**: 1 (`ARCHITECTURE.md`).
+- **Code Changes**: 0 lines.
+
+## 2026-05-29: Development Roadmap Definition
+
+### Goal
+Define the sequential engineering milestones, success criteria, and deliverables for the refactoring process.
+
+### Work Completed
+- Authored `ROADMAP.md` mapping out 6 key milestones (from config/migrations refactoring to telemetry instrumentation).
+- Established baseline expected commits, risks, and success metrics for each milestone.
+
+### Metrics
+- **Files Created**: 1 (`ROADMAP.md`).
+- **Code Changes**: 0 lines.
+
+## 2026-05-29: Setup of the Project Documentation & Standard Systems
+
+### Goal
+Establish the unified documentation layout, metrics logs, change tracking records, and the Architectural Decision Record (ADR) history register.
+
+### Work Completed
+- Created `CHANGELOG.md` initializing the SemVer tracking record.
+- Created `METRICS.md` defining latency thresholds, memory hygiene benchmarks, and target test coverages.
+- Created the first Architectural Decision Record (`docs/adr/0001-cargo-workspace-and-hsm-architecture.md`) documenting the rationale behind the multi-crate Cargo Workspace and embedded integration.
+
+### Metrics
+- **Files Created**: 3 (`CHANGELOG.md`, `METRICS.md`, `docs/adr/0001-cargo-workspace-and-hsm-architecture.md`).
 - **Code Changes**: 0 lines.

@@ -15,6 +15,8 @@ The project is organized into a Cargo Workspace:
 - [x] **Product Vision & Threat Model**: Formulate the threat model (HNDL attacks, host memory vulnerability) and hardware token design.
 - [x] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
 - [x] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
+- [x] **Engineering Roadmap**: Structuring milestones, deliverables, metrics, and commit targets.
+- [x] **Documentation System**: Initializing README, ADRs, and metrics registers.
 - [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
 - [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
 - [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
@@ -26,4 +28,8 @@ The project is organized into a Cargo Workspace:
 - **[VISION.md](VISION.md)**: Product positioning, threat modeling, and HSM hardware specifications.
 - **[RESEARCH.md](RESEARCH.md)**: Cryptographic algorithms, TLV serial framing, and Embassy runtime specs.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, and hardware integration boundaries.
+- **[ROADMAP.md](ROADMAP.md)**: Development checkpoints, success criteria, and expected commit targets.
+- **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
+- **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, and binary overhead budgets.
+- **[docs/adr/0001-cargo-workspace-and-hsm-architecture.md](docs/adr/0001-cargo-workspace-and-hsm-architecture.md)**: Design choices log.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.

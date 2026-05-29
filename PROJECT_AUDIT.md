@@ -2,13 +2,9 @@
 
 This audit evaluates the Q-Safe secure messaging system to identify implementation gaps, architectural flaws, technical debt, and security vulnerabilities. This document defines the engineering baseline for refactoring the codebase.
 
----
-
 ## 1. Context & Goals
 * **Original Project Goal**: To implement a secure messaging backend in Rust featuring post-quantum cryptography (Kyber) and simulated quantum communication protocols (QKD BB84/E91, QRNG) over HTTP APIs and WebSockets.
 * **The Refactoring Narrative**: I built the initial part of this project when I was a student to learn basic Rust API concepts and cryptography. Now, as I strive for a professional role in systems and embedded engineering, I am using this project as a research playground. My goal is to refactor it from a student prototype to a production-ready Cargo Workspace integrating bare-metal Embedded Rust with secure messaging mechanics.
-
----
 
 ## 2. Current State Analysis
 
@@ -36,8 +32,6 @@ This audit evaluates the Q-Safe secure messaging system to identify implementati
 ### What Should Be Preserved
 - **Hybrid Security Philosophy**: The design of combining classical cryptography (X25519) with post-quantum algorithms (Kyber) is excellent and remains a core system feature.
 - **Simulators as Test Assets**: Keep the QKD and QRNG simulation frameworks isolated as diagnostic components for test suites.
-
----
 
 ## 3. Vulnerabilities & Architectural Debt
 

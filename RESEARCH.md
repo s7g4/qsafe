@@ -20,10 +20,17 @@ Because the host server and the micro-controller communicate over a raw byte str
 
 ### Frame Layout (Type-Length-Value)
 Every USB transmission will use a strict packet structure:
-```
-+------------+------------+-----------------+-----------------------+
-|  Type (1B) | Length(2B) |   Payload (NB)  |    CRC-16 Check(2B)   |
-+------------+------------+-----------------+-----------------------+
+```mermaid
+flowchart LR
+
+    subgraph Frame["Protocol Frame"]
+        direction LR
+
+        T["Type<br/>1B"]
+        L["Length<br/>2B"]
+        P["Payload<br/>N Bytes"]
+        C["CRC-16<br/>2B"]
+    end
 ```
 
 ### Packet Operations
@@ -33,16 +40,12 @@ Every USB transmission will use a strict packet structure:
 ### Error Detection
 Raw UART/USB serial connections are prone to transmission errors. I will use a **CRC-16-CCITT** checksum appended to the end of every packet. On checksum failure, the receiver discards the corrupt frame and requests a retransmission.
 
----
-
 ## 3. Embedded Firmware Architecture (Embassy)
 
 ### The Runtime
 For the microcontroller firmware, I am using **Embassy**, an asynchronous, bare-metal Rust framework for embedded systems.
 - **Why Embassy?**: Embassy allows writing low-level code using Rust's `async/await` syntax. Instead of spinning CPU cycles in a polling loop waiting for USB transactions, the microcontroller suspends and handles events via hardware interrupts, lowering power usage and simplifying concurrency.
 - **Target Microcontroller**: Raspberry Pi Pico (RP2040). It features dual ARM Cortex-M0+ cores, 264KB SRAM, and native USB controllers.
-
----
 
 ## 4. Hardware-in-the-Loop (HIL) Software Simulation
 

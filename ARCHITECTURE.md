@@ -2,8 +2,6 @@
 
 This document outlines the software and hardware architecture for the Q-Safe secure messaging system. It defines the workspace boundaries, data flows, communication protocols, and failure modes.
 
----
-
 ## 1. High-Level Architecture
 
 Q-Safe is built as a multi-tier systems architecture. The key components include a stateless API gateway, a real-time WebSocket messaging module, and a bare-metal Hardware Security Module (HSM) microcontroller running bare-metal Rust.
@@ -38,8 +36,6 @@ graph TD
     end
 ```
 
----
-
 ## 2. Component Boundaries & Workspace Layout
 
 The project is structured as a Cargo Workspace to enforce compilation rules across different target architectures (x86_64 server hosts and thumbv6m microcontroller cores).
@@ -61,8 +57,6 @@ qsafe/ (Workspace Root)
 │   ├── src/
 │   │   └── lib.rs           # Packet structs, CRC-16 utility, & serial type definitions
 ```
-
----
 
 ## 3. Communication Sequence: Hybrid Handshake
 
@@ -89,8 +83,6 @@ sequenceDiagram
     
     Note over Alice: Decapsulates CT_Kyber<br/>Computes X25519 shared secret<br/>Derives master session key via HKDF
 ```
-
----
 
 ## 4. Failure Modes & Mitigations
 
