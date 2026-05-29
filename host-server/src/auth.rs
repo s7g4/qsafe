@@ -1,9 +1,9 @@
 //! Authentication module for Q-Safe
 
-use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey, errors::Error};
-use serde::{Deserialize, Serialize};
-use chrono::{Utc, Duration};
 use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{decode, encode, errors::Error, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,6 +81,7 @@ impl AuthService {
 
     pub fn extract_user_id_from_token(&self, token: &str) -> Result<Uuid, Error> {
         let claims = self.verify_token(token)?;
-        Uuid::parse_str(&claims.sub).map_err(|_| Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken))
+        Uuid::parse_str(&claims.sub)
+            .map_err(|_| Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken))
     }
 }

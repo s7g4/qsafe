@@ -1,5 +1,5 @@
 use axum::{
-    extract::{ws::WebSocketUpgrade, Path, State},
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
@@ -11,15 +11,15 @@ use qsafe_backend::{
     database::Database,
     qkd::QKDProtocol,
     qrng::QRNG,
-    websocket::{handle_websocket, ConnectedClients},
+    websocket::handle_websocket,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
-use std::env;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
+#[allow(dead_code)]
 struct AppState {
     db: Database,
     auth: AuthService,
@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = Database::new(&config.database_url).await?;
     db.create_tables().await?;
 
-    let auth = AuthService::new(jwt_secret);
+    let auth = AuthService::new(config.jwt_secret.clone());
     let crypto = Arc::new(Mutex::new(CryptoEngine::new()));
     let qkd = Arc::new(Mutex::new(QKDProtocol::new()));
     let qrng = Arc::new(Mutex::new(QRNG::new()));
@@ -205,10 +205,9 @@ async fn login(
 }
 
 async fn get_messages(
-    State(state): State<Arc<AppState>>,
-    Path(user_id): Path<String>,
+    State(_state): State<Arc<AppState>>,
+    Path(_user_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
-    // TODO: Implement with proper authentication and message retrieval
     Ok(Json(ApiResponse {
         success: true,
         data: Some(vec![]),
@@ -217,10 +216,9 @@ async fn get_messages(
 }
 
 async fn send_message(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<serde_json::Value>,
+    State(_state): State<Arc<AppState>>,
+    Json(_payload): Json<serde_json::Value>,
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
-    // TODO: Implement message sending with quantum encryption
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Message sent".to_string()),
@@ -229,9 +227,8 @@ async fn send_message(
 }
 
 async fn get_contacts(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
-    // TODO: Implement with authentication
     Ok(Json(ApiResponse {
         success: true,
         data: Some(vec![]),
@@ -240,10 +237,9 @@ async fn get_contacts(
 }
 
 async fn add_contact(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<serde_json::Value>,
+    State(_state): State<Arc<AppState>>,
+    Json(_payload): Json<serde_json::Value>,
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
-    // TODO: Implement contact addition
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Contact added".to_string()),

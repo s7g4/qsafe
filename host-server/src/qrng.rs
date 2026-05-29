@@ -1,11 +1,11 @@
 //! Quantum Random Number Generation with secure entropy
 
-use rand::RngCore;
 use rand::rngs::OsRng;
-use rand_pcg::Pcg64Mcg;
+use rand::RngCore;
+#[cfg(test)]
 use rand::SeedableRng;
-use rand::Rng;
-use getrandom;
+#[cfg(test)]
+use rand_pcg::Pcg64Mcg;
 
 pub struct QRNG {
     secure_rng: OsRng,
@@ -78,34 +78,50 @@ impl QRNG {
     }
 
     /// Detect eavesdropping with decoy bits support
-    pub fn detect_eavesdropping(&mut self, original_pairs: &[(u8, u8)], measured_pairs: &[(u8, u8)], decoy_indices: Option<&[usize]>) -> f64 {
+    pub fn detect_eavesdropping(
+        &mut self,
+        original_pairs: &[(u8, u8)],
+        measured_pairs: &[(u8, u8)],
+        decoy_indices: Option<&[usize]>,
+    ) -> f64 {
         let pairs_to_check = if let Some(indices) = decoy_indices {
-            indices.iter().filter_map(|&i| {
-                if i < original_pairs.len() && i < measured_pairs.len() {
-                    Some((original_pairs[i], measured_pairs[i]))
-                } else {
-                    None
-                }
-            }).collect::<Vec<_>>()
+            indices
+                .iter()
+                .filter_map(|&i| {
+                    if i < original_pairs.len() && i < measured_pairs.len() {
+                        Some((original_pairs[i], measured_pairs[i]))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
         } else {
-            original_pairs.iter().zip(measured_pairs.iter()).map(|(&a, &b)| (a, b)).collect()
+            original_pairs
+                .iter()
+                .zip(measured_pairs.iter())
+                .map(|(&a, &b)| (a, b))
+                .collect()
         };
-
+        if pairs_to_check.is_empty() {
+            return 0.0;
+        }
+        let total_count = pairs_to_check.len() as f64;
         let mut errors = 0;
         for (orig, meas) in pairs_to_check {
             if orig.0 != meas.0 || orig.1 != meas.1 {
                 errors += 1;
             }
         }
-        if pairs_to_check.is_empty() {
-            0.0
-        } else {
-            errors as f64 / pairs_to_check.len() as f64
-        }
+
+        errors as f64 / total_count
     }
 
     /// Generate decoy bits for BB84-style checks
-    pub fn generate_decoy_bits(&mut self, total_bits: usize, decoy_fraction: f64) -> (Vec<usize>, Vec<u8>) {
+    pub fn generate_decoy_bits(
+        &mut self,
+        total_bits: usize,
+        decoy_fraction: f64,
+    ) -> (Vec<usize>, Vec<u8>) {
         let decoy_count = (total_bits as f64 * decoy_fraction) as usize;
         let mut decoy_indices = Vec::with_capacity(decoy_count);
         let mut decoy_bases = Vec::with_capacity(decoy_count);

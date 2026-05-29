@@ -1,7 +1,7 @@
 //! Quantum Key Distribution simulation (BB84 protocol) with decoy bits and parity checks
 
-use crate::qrng::QRNG;
 use crate::crypto::CryptoEngine;
+use crate::qrng::QRNG;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -45,7 +45,11 @@ impl QKDProtocol {
     }
 
     /// BB84 protocol with decoy bits and parity checks
-    pub fn bb84_with_decoy_checks(&mut self, key_length: usize, decoy_fraction: f64) -> Result<QKDKey, Box<dyn std::error::Error>> {
+    pub fn bb84_with_decoy_checks(
+        &mut self,
+        key_length: usize,
+        decoy_fraction: f64,
+    ) -> Result<QKDKey, Box<dyn std::error::Error>> {
         // Alice prepares photons with decoys
         let total_bits = (key_length as f64 / (1.0 - decoy_fraction)) as usize;
         let mut alice_bits = Vec::new();
@@ -53,11 +57,16 @@ impl QKDProtocol {
 
         for _ in 0..total_bits {
             alice_bits.push(self.qrng.quantum_measurement());
-            alice_bases.push(if self.qrng.quantum_measurement() == 0 { Basis::Rectilinear } else { Basis::Diagonal });
+            alice_bases.push(if self.qrng.quantum_measurement() == 0 {
+                Basis::Rectilinear
+            } else {
+                Basis::Diagonal
+            });
         }
 
         // Generate decoy bits
-        let (decoy_indices, decoy_bases) = self.qrng.generate_decoy_bits(total_bits, decoy_fraction);
+        let (decoy_indices, _decoy_bases) =
+            self.qrng.generate_decoy_bits(total_bits, decoy_fraction);
 
         // Bob measures photons
         let mut bob_bits = Vec::new();
@@ -65,7 +74,11 @@ impl QKDProtocol {
 
         for _ in 0..alice_bits.len() {
             bob_bits.push(self.qrng.quantum_measurement());
-            bob_bases.push(if self.qrng.quantum_measurement() == 0 { Basis::Rectilinear } else { Basis::Diagonal });
+            bob_bases.push(if self.qrng.quantum_measurement() == 0 {
+                Basis::Rectilinear
+            } else {
+                Basis::Diagonal
+            });
         }
 
         // Sifting: Keep only bits where bases match (excluding decoys for now)
@@ -79,7 +92,13 @@ impl QKDProtocol {
         }
 
         // Decoy check: Reveal decoy bases and check error rate
-        let decoy_error_rate = self.check_decoy_errors(&alice_bits, &bob_bits, &alice_bases, &bob_bases, &decoy_indices);
+        let decoy_error_rate = self.check_decoy_errors(
+            &alice_bits,
+            &bob_bits,
+            &alice_bases,
+            &bob_bases,
+            &decoy_indices,
+        );
 
         // Parity check on sifted bits
         let parity_error_rate = self.check_parity_errors(&sifted_bits);
@@ -91,7 +110,9 @@ impl QKDProtocol {
         let amplified_key = self.privacy_amplification(&sifted_bits);
 
         // Key confirmation MAC
-        let confirmation_mac = self.crypto.key_confirmation_mac(&amplified_key, b"qsafe-key-confirmation");
+        let confirmation_mac = self
+            .crypto
+            .key_confirmation_mac(&amplified_key, b"qsafe-key-confirmation");
 
         Ok(QKDKey {
             key: amplified_key,
@@ -101,7 +122,14 @@ impl QKDProtocol {
         })
     }
 
-    fn check_decoy_errors(&self, alice_bits: &[u8], bob_bits: &[u8], alice_bases: &[Basis], bob_bases: &[Basis], decoy_indices: &[usize]) -> f64 {
+    fn check_decoy_errors(
+        &self,
+        alice_bits: &[u8],
+        bob_bits: &[u8],
+        alice_bases: &[Basis],
+        bob_bases: &[Basis],
+        decoy_indices: &[usize],
+    ) -> f64 {
         let mut errors = 0;
         let mut total = 0;
 
@@ -114,11 +142,17 @@ impl QKDProtocol {
             }
         }
 
-        if total == 0 { 0.0 } else { errors as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            errors as f64 / total as f64
+        }
     }
 
     fn check_parity_errors(&self, bits: &[u8]) -> f64 {
-        if bits.len() < 2 { return 0.0; }
+        if bits.len() < 2 {
+            return 0.0;
+        }
 
         let mut errors = 0;
         let mut total = 0;
@@ -127,11 +161,17 @@ impl QKDProtocol {
         for _ in 0..bits.len() / 4 {
             let subset: Vec<u8> = bits.iter().take(4).cloned().collect();
             let parity = subset.iter().fold(0u8, |acc, &b| acc ^ b);
-            if parity != 0 { errors += 1; }
+            if parity != 0 {
+                errors += 1;
+            }
             total += 1;
         }
 
-        if total == 0 { 0.0 } else { errors as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            errors as f64 / total as f64
+        }
     }
 
     fn privacy_amplification(&self, bits: &[u8]) -> Vec<u8> {
@@ -140,7 +180,10 @@ impl QKDProtocol {
     }
 
     /// Legacy BB84 without decoys (for compatibility)
-    pub fn bb84_key_exchange(&mut self, key_length: usize) -> Result<QKDKey, Box<dyn std::error::Error>> {
+    pub fn bb84_key_exchange(
+        &mut self,
+        key_length: usize,
+    ) -> Result<QKDKey, Box<dyn std::error::Error>> {
         let qkd_key = self.bb84_with_decoy_checks(key_length, 0.1)?;
         Ok(QKDKey {
             key: qkd_key.key,
@@ -151,7 +194,11 @@ impl QKDProtocol {
     }
 
     /// E91 protocol with decoy checks
-    pub fn e91_with_decoy_checks(&mut self, key_length: usize, decoy_fraction: f64) -> Result<QKDKey, Box<dyn std::error::Error>> {
+    pub fn e91_with_decoy_checks(
+        &mut self,
+        key_length: usize,
+        decoy_fraction: f64,
+    ) -> Result<QKDKey, Box<dyn std::error::Error>> {
         let mut key_bits = Vec::new();
         let mut entangled_pairs = Vec::new();
 
@@ -168,14 +215,20 @@ impl QKDProtocol {
         }
 
         // Decoy check on entangled pairs
+        let decoy_indices = self
+            .qrng
+            .generate_decoy_bits(entangled_pairs.len(), decoy_fraction)
+            .0;
         let decoy_error_rate = self.qrng.detect_eavesdropping(
             &entangled_pairs,
             &entangled_pairs, // Perfect correlation assumed
-            Some(&self.qrng.generate_decoy_bits(entangled_pairs.len(), decoy_fraction).0),
+            Some(&decoy_indices),
         );
 
         let amplified_key = self.privacy_amplification(&key_bits);
-        let confirmation_mac = self.crypto.key_confirmation_mac(&amplified_key, b"qsafe-e91-confirmation");
+        let confirmation_mac = self
+            .crypto
+            .key_confirmation_mac(&amplified_key, b"qsafe-e91-confirmation");
 
         Ok(QKDKey {
             key: amplified_key,
@@ -186,7 +239,11 @@ impl QKDProtocol {
     }
 
     fn measure_in_random_basis(&mut self, bit: u8) -> (u8, Basis) {
-        let basis = if self.qrng.quantum_measurement() == 0 { Basis::Rectilinear } else { Basis::Diagonal };
+        let basis = if self.qrng.quantum_measurement() == 0 {
+            Basis::Rectilinear
+        } else {
+            Basis::Diagonal
+        };
         (bit, basis)
     }
 }
