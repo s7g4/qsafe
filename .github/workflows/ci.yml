@@ -2,9 +2,9 @@ name: Q-Safe CI Pipeline
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
-    branches: [master]
+    branches: [ master ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,35 +15,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
 
-      - name: Set up Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          targets: thumbv6m-none-eabi
+    - name: Set up Rust Toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        targets: thumbv6m-none-eabi
 
-      - name: Cache Cargo Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+    - name: Cache Cargo Dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
 
-      - name: Verify Code Formatting
-        run: cargo fmt --all -- --check
+    - name: Verify Code Formatting
+      run: cargo fmt --all -- --check
 
-      - name: Run Static Analysis (Clippy)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+    - name: Run Static Analysis (Clippy) - Host Crates
+      run: cargo clippy -p qsafe-backend -p qsafe-common --all-targets -- -D warnings
 
-      - name: Check Embedded Firmware Compilation
-        run: cargo check -p qsafe-firmware --target thumbv6m-none-eabi
+    - name: Run Static Analysis (Clippy) - Embedded Firmware
+      run: cargo clippy -p qsafe-firmware --target thumbv6m-none-eabi -- -D warnings
 
-      - name: Execute Workspace Tests
-        run: cargo test --workspace
+    - name: Check Embedded Firmware Compilation
+      run: cargo check -p qsafe-firmware --target thumbv6m-none-eabi
+
+    - name: Execute Workspace Tests
+      run: cargo test -p qsafe-backend -p qsafe-common

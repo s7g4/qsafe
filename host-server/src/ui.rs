@@ -13,6 +13,7 @@ pub struct UI {
     console: web_sys::console::Console,
 }
 
+#[allow(clippy::new_without_default)]
 impl UI {
     pub fn new() -> Self {
         Self {
@@ -36,7 +37,10 @@ impl UI {
 
     /// Display quantum key exchange visualization
     #[cfg(feature = "visualization")]
-    pub fn visualize_qkd(&self, key_exchange_data: &[f64]) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn visualize_qkd(
+        &self,
+        key_exchange_data: &[f64],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let root = BitMapBackend::new("qkd_visualization.png", (640, 480)).into_drawing_area();
         root.fill(&WHITE)?;
 
@@ -50,7 +54,10 @@ impl UI {
         chart.configure_mesh().draw()?;
 
         chart.draw_series(LineSeries::new(
-            key_exchange_data.iter().enumerate().map(|(i, &v)| (i as f64, v)),
+            key_exchange_data
+                .iter()
+                .enumerate()
+                .map(|(i, &v)| (i as f64, v)),
             &RED,
         ))?;
 

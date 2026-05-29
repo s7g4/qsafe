@@ -13,6 +13,7 @@ pub struct QRNG {
     sim_rng: Option<Pcg64Mcg>,
 }
 
+#[allow(clippy::new_without_default)]
 impl QRNG {
     /// Create a new QRNG instance with secure entropy
     pub fn new() -> Self {

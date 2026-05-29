@@ -39,6 +39,7 @@ pub struct MessagingService {
     message_receiver: mpsc::UnboundedReceiver<Message>,
 }
 
+#[allow(clippy::new_without_default)]
 impl MessagingService {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();

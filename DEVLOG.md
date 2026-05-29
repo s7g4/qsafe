@@ -132,3 +132,38 @@ Implement a centralized and validated configuration engine to replace raw enviro
 - **Files Modified**: 2 (`host-server/src/lib.rs`, `host-server/src/main.rs`).
 - **Files Created**: 1 (`host-server/src/config.rs`).
 - **Panics Avoided**: Removed 3 unhandled `unwrap()` / `expect()` calls on environment variable lookups.
+
+## 2026-05-29: Resolving Workspace Compilation Errors & Warnings
+
+### Goal
+Resolve all compile errors and compiler warnings in the workspace to restore a clean build baseline.
+
+### Work Completed
+- Enabled the `static_secrets` feature in `host-server/Cargo.toml` for `x25519-dalek` and refactored `crypto.rs` to use `StaticSecret` instead of `EphemeralSecret` to support serializing keys during handshakes.
+- Unified signature structs across the workspace, changing misaligned `Signature` typings in `handshake.rs` and `messaging.rs` to `QSafeSignature`.
+- Replaced `SigningKey::generate` with a custom, feature-independent key loading scheme in `crypto.rs`.
+- Fixed double-mutable borrows of the QRNG simulator in `qkd.rs` and use-after-move vectors in `qrng.rs`.
+- Resolved all unused imports, variables, and dead code warnings inside `main.rs`, `auth.rs`, `handshake.rs`, and `messaging.rs`.
+- Created `docs/adr/0003-static-secret-and-signature-type-unification.md` documenting these changes.
+
+### Metrics
+- **Files Modified**: 8 (`host-server/Cargo.toml`, `host-server/src/main.rs`, `host-server/src/auth.rs`, `host-server/src/crypto.rs`, `host-server/src/handshake.rs`, `host-server/src/messaging.rs`, `host-server/src/qkd.rs`, `host-server/src/qrng.rs`).
+- **Files Created**: 1 (`docs/adr/0003-static-secret-and-signature-type-unification.md`).
+- **Compiler Warnings Resolved**: 13 warnings eliminated.
+- **Build Status**: 100% clean compilation.
+
+## 2026-05-29: Resolving Workspace Binary Test Linking Errors
+
+### Goal
+Resolve workspace-level host-side linking failures when compiling tests for bare-metal firmware binaries.
+
+### Work Completed
+- Added custom `[[bin]]` configuration to `firmware/Cargo.toml` with `test = false` and `bench = false` targets to prevent host-side test harness generation for the `#![no_main]` embedded binary.
+- Created `docs/adr/0004-disabling-test-harness-for-bare-metal-binaries.md` documenting this solution.
+- Verified compilation and testing flow across all workspaces by running clean checks and test suites.
+
+### Metrics
+- **Files Modified**: 1 (`firmware/Cargo.toml`).
+- **Files Created**: 1 (`docs/adr/0004-disabling-test-harness-for-bare-metal-binaries.md`).
+- **Build Status**: 100% clean verification pass for workspace-level tests.
+

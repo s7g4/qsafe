@@ -1,8 +1,8 @@
 //! Database module for Q-Safe
 
-use sqlx::{PgPool, postgres::PgPoolOptions};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -99,7 +99,13 @@ impl Database {
     }
 
     // User operations
-    pub async fn create_user(&self, username: &str, email: &str, password_hash: &str, public_key: &[u8]) -> Result<User, sqlx::Error> {
+    pub async fn create_user(
+        &self,
+        username: &str,
+        email: &str,
+        password_hash: &str,
+        public_key: &[u8],
+    ) -> Result<User, sqlx::Error> {
         let user = sqlx::query_as::<_, User>(
             "INSERT INTO users (username, email, password_hash, public_key) VALUES ($1, $2, $3, $4) RETURNING *",
         )
@@ -132,7 +138,11 @@ impl Database {
     }
 
     // Session operations
-    pub async fn create_session(&self, participants: &[Uuid], shared_key: &[u8]) -> Result<ChatSession, sqlx::Error> {
+    pub async fn create_session(
+        &self,
+        participants: &[Uuid],
+        shared_key: &[u8],
+    ) -> Result<ChatSession, sqlx::Error> {
         let session = sqlx::query_as::<_, ChatSession>(
             "INSERT INTO chat_sessions (participants, shared_key) VALUES ($1, $2) RETURNING *",
         )
@@ -154,7 +164,14 @@ impl Database {
     }
 
     // Message operations
-    pub async fn save_message(&self, sender_id: &Uuid, recipient_id: &Uuid, encrypted_content: &[u8], nonce: &[u8], session_id: &Uuid) -> Result<Message, sqlx::Error> {
+    pub async fn save_message(
+        &self,
+        sender_id: &Uuid,
+        recipient_id: &Uuid,
+        encrypted_content: &[u8],
+        nonce: &[u8],
+        session_id: &Uuid,
+    ) -> Result<Message, sqlx::Error> {
         let message = sqlx::query_as::<_, Message>(
             "INSERT INTO messages (sender_id, recipient_id, encrypted_content, nonce, session_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
         )
@@ -169,7 +186,12 @@ impl Database {
         Ok(message)
     }
 
-    pub async fn get_messages_between_users(&self, user1: &Uuid, user2: &Uuid, limit: i64) -> Result<Vec<Message>, sqlx::Error> {
+    pub async fn get_messages_between_users(
+        &self,
+        user1: &Uuid,
+        user2: &Uuid,
+        limit: i64,
+    ) -> Result<Vec<Message>, sqlx::Error> {
         let messages = sqlx::query_as::<_, Message>(
             "SELECT * FROM messages WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1) ORDER BY timestamp DESC LIMIT $3",
         )

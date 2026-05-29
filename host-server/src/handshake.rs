@@ -39,6 +39,7 @@ pub struct Handshake {
     qrng: QRNG,
 }
 
+#[allow(clippy::new_without_default)]
 impl Handshake {
     pub fn new() -> Self {
         Self {

@@ -36,6 +36,7 @@ pub struct QKDProtocol {
     crypto: CryptoEngine,
 }
 
+#[allow(clippy::new_without_default)]
 impl QKDProtocol {
     pub fn new() -> Self {
         Self {

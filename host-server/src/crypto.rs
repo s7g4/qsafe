@@ -37,6 +37,7 @@ pub struct CryptoEngine {
     rng: rand::rngs::OsRng,
 }
 
+#[allow(clippy::new_without_default)]
 impl CryptoEngine {
     pub fn new() -> Self {
         Self {
@@ -77,7 +78,7 @@ impl CryptoEngine {
 
     /// Generate ephemeral X25519 keypair
     pub fn generate_x25519_keypair(&mut self) -> Result<KeyPair, Box<dyn std::error::Error>> {
-        let secret = StaticSecret::random_from_rng(&mut self.rng);
+        let secret = StaticSecret::random_from_rng(self.rng);
         let public = PublicKey::from(&secret);
         Ok(KeyPair {
             public_key: public.to_bytes().to_vec(),
@@ -212,14 +213,12 @@ impl CryptoEngine {
     pub fn generate_pq_keypair(&mut self) -> Result<KeyPair, Box<dyn std::error::Error>> {
         self.generate_kyber_keypair()
     }
-
     pub fn encapsulate(
         &mut self,
         public_key: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
         self.kyber_encapsulate(public_key)
     }
-
     pub fn decapsulate(
         &mut self,
         secret_key: &[u8],
@@ -227,7 +226,6 @@ impl CryptoEngine {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         self.kyber_decapsulate(secret_key, ciphertext)
     }
-
     pub fn sign(
         &mut self,
         secret_key: &[u8],
@@ -235,7 +233,6 @@ impl CryptoEngine {
     ) -> Result<QSafeSignature, Box<dyn std::error::Error>> {
         self.sign_ed25519(secret_key, message)
     }
-
     pub fn verify(
         &mut self,
         public_key: &[u8],
@@ -243,7 +240,7 @@ impl CryptoEngine {
     ) -> Result<bool, Box<dyn std::error::Error>> {
         self.verify_ed25519(public_key, signature)
     }
-
+    #[allow(clippy::type_complexity)]
     pub fn encrypt(
         &mut self,
         key: &[u8],

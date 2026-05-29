@@ -3,5 +3,10 @@ name = "qsafe-firmware"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "qsafe-firmware"
+path = "src/main.rs"
+test = false
+bench = false
+
 [dependencies]
-# Embassy and bare-metal dependencies will be added during implementation.
