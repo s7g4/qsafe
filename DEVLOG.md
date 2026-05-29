@@ -117,3 +117,18 @@ Define the automated CI/CD stages, security scanning boundaries, and cross-compi
 ### Metrics
 - **Files Updated**: 1 (`METRICS.md`).
 - **Code Changes**: 0 lines.
+
+## 2026-05-29: Implementing Validated Config Loader
+
+### Goal
+Implement a centralized and validated configuration engine to replace raw environment variable lookups.
+
+### Work Completed
+- Added `pub mod config;` to `host-server/src/lib.rs`.
+- Created `host-server/src/config.rs` implementing a type-safe `Config` struct.
+- Modified `host-server/src/main.rs` to read parameters from `Config::load()` and handle boot errors gracefully.
+
+### Metrics
+- **Files Modified**: 2 (`host-server/src/lib.rs`, `host-server/src/main.rs`).
+- **Files Created**: 1 (`host-server/src/config.rs`).
+- **Panics Avoided**: Removed 3 unhandled `unwrap()` / `expect()` calls on environment variable lookups.

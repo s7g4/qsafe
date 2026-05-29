@@ -31,5 +31,5 @@ The project is organized into a Cargo Workspace:
 - **[ROADMAP.md](ROADMAP.md)**: Development checkpoints, success criteria, and expected commit targets.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
 - **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
-- **[docs/adr/0001-cargo-workspace-and-hsm-architecture.md](docs/adr/0001-cargo-workspace-and-hsm-architecture.md)**: Design choices log.
+- **[docs/adr/](docs/adr/)**: Architectural Decision Records (ADRs) tracking design updates and transitions.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.
