@@ -1,0 +1,49 @@
+name: Q-Safe CI Pipeline
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    name: Code Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: thumbv6m-none-eabi
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Verify Code Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Static Analysis (Clippy)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Check Embedded Firmware Compilation
+        run: cargo check -p qsafe-firmware --target thumbv6m-none-eabi
+
+      - name: Execute Workspace Tests
+        run: cargo test --workspace

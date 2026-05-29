@@ -1,6 +1,6 @@
 # System Benchmarks & Metrics: Q-Safe
 
-This document tracks system performance benchmarks, target metrics, and verification limits for both host-side service APIs and embedded HSM operations.
+This document tracks system performance benchmarks, target metrics, verification limits, testing strategies, and CI/CD parameters for both host-side service APIs and embedded HSM operations.
 
 ## 1. Latency & Connection Targets
 
@@ -22,9 +22,25 @@ This document tracks system performance benchmarks, target metrics, and verifica
 - **Docker Image Footprint**: 
   * **Production Image Size**: < 50MB (achieved using multi-stage scratch/alpine builds).
 
-## 3. Continuous Integration Verification Targets
-- **Code Coverage**: >= 80% coverage across all computational and API modules (tracked via `cargo-tarpaulin`).
-- **Static Analysis Compliance**: 0 compiler warnings and 0 Clippy lints (`#[deny(warnings)]`).
+## 3. Continuous Integration & Pipeline Automation
+
+To maintain code health and prevent integration regression, the automated CI pipeline (e.g., GitHub Actions) enforces strict checks on every pull request to the `master` branch:
+
+### Stage 1: Style & Code Quality Check
+- **Code Formatting**: Runs `cargo fmt --all -- --check` to ensure the codebase strictly complies with standard style rules.
+- **Static Analysis (Lints)**: Runs `cargo clippy --workspace --all-targets -- -D warnings` to catch common code smells, suboptimal patterns, or API misuses.
+
+### Stage 2: Security Auditing
+- **Dependency Scan**: Runs `cargo audit` to verify that none of the third-party crates defined in `Cargo.lock` contain active vulnerabilities logged in the Rust Advisory Database.
+- **License & Dependency Control**: Runs `cargo deny check` to block dependencies using incompatible open-source licenses or adding duplicate crates.
+
+### Stage 3: Compilation & Cross-Build Verification
+- **Host Compilation**: Runs `cargo check --workspace --bins --tests --all-targets` to verify successful x86_64 host compilation.
+- **Embedded Compilation**: Runs `cargo check -p qsafe-firmware --target thumbv6m-none-eabi` to ensure the microcontroller firmware builds successfully without std library dependencies.
+
+### Stage 4: Automated Testing & Coverage
+- **Test Execution**: Runs `cargo test --workspace --all-targets` to execute all unit and integration test blocks.
+- **Coverage Guard**: Runs `cargo tarpaulin --workspace --out Xml` to verify that total codebase coverage remains above **80%**.
 
 ## 4. Testing & Verification Strategy
 

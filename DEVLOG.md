@@ -105,3 +105,15 @@ Define the monitoring framework and testing strategy blueprints to measure syste
 ### Metrics
 - **Files Updated**: 2 (`ARCHITECTURE.md`, `METRICS.md`).
 - **Code Changes**: 0 lines.
+
+## 2026-05-29: Continuous Integration & Automated Verification Setup
+
+### Goal
+Define the automated CI/CD stages, security scanning boundaries, and cross-compilation target compilation checks.
+
+### Work Completed
+- Integrated **CI/CD Specifications** directly into `METRICS.md` under Section 3, outlining checks for formatting (`rustfmt`), lints (`clippy`), security audits (`cargo audit`), duplicate/license controls (`cargo deny`), and target compilation bounds (host x86_64 vs. embedded thumbv6m targets).
+
+### Metrics
+- **Files Updated**: 1 (`METRICS.md`).
+- **Code Changes**: 0 lines.

@@ -17,6 +17,7 @@ The project is organized into a Cargo Workspace:
 - [x] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
 - [x] **Engineering Roadmap**: Structuring milestones, deliverables, metrics, and commit targets.
 - [x] **Documentation & Observability System**: Initializing README, ADRs, metrics registers, and tracing specs.
+- [x] **CI/CD Automation Design**: Defining formatting, linting, security scanning, and target build checks.
 - [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
 - [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
 - [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
@@ -29,6 +30,6 @@ The project is organized into a Cargo Workspace:
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, hardware integration boundaries, and observability metrics.
 - **[ROADMAP.md](ROADMAP.md)**: Development checkpoints, success criteria, and expected commit targets.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
-- **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, and test/verification strategy.
+- **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
 - **[docs/adr/0001-cargo-workspace-and-hsm-architecture.md](docs/adr/0001-cargo-workspace-and-hsm-architecture.md)**: Design choices log.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.
