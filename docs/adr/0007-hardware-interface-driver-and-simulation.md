@@ -10,7 +10,7 @@ To develop and run the application across multiple environments (such as develop
 2. **Local Simulation / Mocking**: Decouple the HSM driver logic from the physical serial port so we can simulate the HSM behavior in memory when physical devices are absent.
 
 ## Decision
-1. **TLV Packet Framing**: Implement a zero-heap-allocation Type-Length-Value (TLV) packetizer in the shared [qsafe-common](common/src/lib.rs) crate. The frame consists of:
+1. **TLV Packet Framing**: Implement a zero-heap-allocation Type-Length-Value (TLV) packetizer in the shared [qsafe-common](../../common/src/lib.rs) crate. The frame consists of:
    `[Type (1B)] [Length (2B, Big Endian)] [Payload (N Bytes)] [CRC-16-CCITT (2B)]`
 2. **Standard Checksum**: Validate all serial transmissions using a **CRC-16-CCITT** polynomial (`0x1021` with init `0xFFFF`), computed over Type, Length, and Payload.
 3. **Decoupled Driver Trait**: Define a blocking connection trait `HsmConnection` on the host backend.

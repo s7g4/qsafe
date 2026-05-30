@@ -12,8 +12,8 @@ To mitigate this threat vector, we must ensure that:
 ## Decision
 1. **Memory Zeroization**: Integrate the `zeroize` crate to clear bytes.
 2. **Explicit Zeroization Implementations**:
-   - Implement `zeroize::Zeroize` and `Drop` on the `KeyPair` structure in [host-server/src/crypto.rs](host-server/src/crypto.rs), zeroizing the private key vector.
-   - Implement `zeroize::Zeroize` and `Drop` on the `HybridSharedSecret` structure in [host-server/src/crypto.rs](host-server/src/crypto.rs), clearing the Kyber shared secret, X25519 shared secret, and the derived session key.
+   - Implement `zeroize::Zeroize` and `Drop` on the `KeyPair` structure in [host-server/src/crypto.rs](../../host-server/src/crypto.rs), zeroizing the private key vector.
+   - Implement `zeroize::Zeroize` and `Drop` on the `HybridSharedSecret` structure in [host-server/src/crypto.rs](../../host-server/src/crypto.rs), clearing the Kyber shared secret, X25519 shared secret, and the derived session key.
 3. **Buffer Hygiene**: Refactor `CryptoEngine` methods to manually zeroize all temporary stack copies or intermediate arrays containing key material (e.g., intermediate stack arrays in `x25519_shared_secret`, `hybrid_key_agreement`, and `sign_ed25519`).
 
 ## Consequences

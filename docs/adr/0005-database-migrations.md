@@ -11,9 +11,9 @@ In the legacy codebase, database tables were initialized by running a raw multi-
 
 ## Decision
 Transition the database schema definition to SQLx's built-in migration management tool.
-1. Define the initial tables in a tracked SQL file: [0001_init.sql](host-server/migrations/0001_init.sql).
+1. Define the initial tables in a tracked SQL file: [0001_init.sql](../../host-server/migrations/0001_init.sql).
 2. Invoke `sqlx::migrate!().run(&pool).await?` inside `Database::new` during connection pool configuration.
-3. Remove the inline `create_tables` logic and its explicit call in [main.rs](host-server/src/main.rs).
+3. Remove the inline `create_tables` logic and its explicit call in [main.rs](../../host-server/src/main.rs).
 
 ## Consequences
 
