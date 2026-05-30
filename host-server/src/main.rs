@@ -20,12 +20,12 @@ use serde::Serialize;
 use std::future::ready;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::{
     request_id::{MakeRequestUuid, SetRequestIdLayer},
     trace::TraceLayer,
 };
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
@@ -160,10 +160,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/logout", post(logout))
         .layer(rate_limiter);
 
-#[derive(serde::Deserialize)]
-struct WsQuery {
-    token: String,
-}
+    #[derive(serde::Deserialize)]
+    struct WsQuery {
+        token: String,
+    }
 
     let app = Router::new()
         .route("/api/health", get(health_check))
@@ -190,12 +190,22 @@ struct WsQuery {
         .layer(
             CorsLayer::new()
                 .allow_origin(AllowOrigin::exact(
-                    config.cors_origin.parse::<HeaderValue>().unwrap_or_else(|_| {
-                        HeaderValue::from_static("http://localhost:3000")
-                    }),
+                    config
+                        .cors_origin
+                        .parse::<HeaderValue>()
+                        .unwrap_or_else(|_| HeaderValue::from_static("http://localhost:3000")),
                 ))
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
-                .allow_headers([axum::http::header::AUTHORIZATION, axum::http::header::CONTENT_TYPE])
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::AUTHORIZATION,
+                    axum::http::header::CONTENT_TYPE,
+                ])
                 .allow_credentials(true),
         )
         .layer(TraceLayer::new_for_http())

@@ -35,8 +35,8 @@ impl Config {
 
         let hsm_port = env::var("HSM_PORT").ok();
 
-        let cors_origin = env::var("CORS_ORIGIN")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+        let cors_origin =
+            env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:3000".to_string());
 
         let db_max_connections = env::var("DB_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "10".to_string())

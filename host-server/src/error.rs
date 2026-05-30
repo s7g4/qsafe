@@ -80,9 +80,7 @@ impl IntoResponse for QSafeError {
             QSafeError::Unauthorized(ref msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             QSafeError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.clone()),
             QSafeError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-            QSafeError::ValidationError(ref msg) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, msg.clone())
-            }
+            QSafeError::ValidationError(ref msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             QSafeError::Internal(ref msg) => {
                 tracing::error!(error = %msg, "Internal server error");
                 (

@@ -152,7 +152,7 @@ mod tests {
     fn test_password_hashing() {
         let auth = AuthService::new("test_secret".to_string());
         let password = "my_super_secret_password";
-        
+
         let hash = auth.hash_password(password).expect("Hashing failed");
         assert!(auth.verify_password(password, &hash).unwrap());
         assert!(!auth.verify_password("wrong_password", &hash).unwrap());
@@ -166,7 +166,7 @@ mod tests {
 
         let access_token = auth.create_access_token(&user_id, username).unwrap();
         let claims = auth.verify_token(&access_token).unwrap();
-        
+
         assert_eq!(claims.sub, user_id.to_string());
         assert_eq!(claims.username, username);
         assert_eq!(claims.token_type, "access");
@@ -176,10 +176,10 @@ mod tests {
     fn test_extract_user_id() {
         let auth = AuthService::new("test_secret".to_string());
         let user_id = Uuid::new_v4();
-        
+
         let access_token = auth.create_access_token(&user_id, "user").unwrap();
         let extracted_id = auth.extract_user_id_from_token(&access_token).unwrap();
-        
+
         assert_eq!(user_id, extracted_id);
     }
 }

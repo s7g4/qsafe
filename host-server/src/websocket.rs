@@ -70,7 +70,10 @@ impl WebSocketRegistry {
     }
 
     pub async fn deregister(&self, user_id: String) {
-        let _ = self.cmd_tx.send(RegistryCommand::Deregister { user_id }).await;
+        let _ = self
+            .cmd_tx
+            .send(RegistryCommand::Deregister { user_id })
+            .await;
     }
 
     pub async fn send_message(&self, recipient_id: String, message: Message) -> bool {
@@ -132,7 +135,12 @@ pub async fn handle_websocket(
     ws.on_upgrade(move |socket| handle_socket(socket, registry, db, user_id))
 }
 
-async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: Database, user_id: Uuid) {
+async fn handle_socket(
+    socket: WebSocket,
+    registry: Arc<WebSocketRegistry>,
+    db: Database,
+    user_id: Uuid,
+) {
     let (mut sender, mut receiver) = socket.split();
     let session_id = user_id.to_string();
 
