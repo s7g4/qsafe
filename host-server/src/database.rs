@@ -177,7 +177,7 @@ impl Database {
     // Contact operations
     pub async fn add_contact(&self, user_id: &Uuid, contact_id: &Uuid) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "INSERT INTO contacts (user_id, contact_id) VALUES ($1, $2) ON CONFLICT (user_id, contact_id) DO NOTHING",
+            "INSERT INTO contacts (user_id, contact_id, status) VALUES ($1, $2, 'accepted') ON CONFLICT (user_id, contact_id) DO NOTHING",
         )
         .bind(user_id)
         .bind(contact_id)

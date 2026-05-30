@@ -282,7 +282,28 @@ Instrument the server gateway with structured JSON logging, request-correlation 
 - **Log Format**: Structured JSON stream with unique Correlation IDs per HTTP task.
 - **Build Status**: 100% clean check, format, clippy, and test pass.
 
+## 2026-05-30: HTTP API Integrations & Auth Middleware
 
+### Goal
+Implement JWT-based authorization middleware and replace static HTTP handler stubs with real database-backed CRUD operations for messages and contacts.
+
+### Work Completed
+- Implemented the `AuthedUser` custom Axum extractor in [host-server/src/main.rs](host-server/src/main.rs) that validates `Authorization: Bearer <token>` headers, extracting user UUID and username from JWT claims.
+- Implemented `FromRequestParts<S>` with `FromRef<S>` state extraction to access `AppState.auth` from within the extractor.
+- Refactored `get_messages` handler to query the database using `db.get_messages_between_users` between the authenticated user and a target user UUID parsed from the URL path.
+- Refactored `send_message` handler to decode base64-encoded `encrypted_content` and `nonce` fields from the JSON payload and persist them using `db.save_message`.
+- Refactored `get_contacts` handler to fetch contacts from the database using `db.get_contacts`.
+- Refactored `add_contact` handler to parse a `contact_id` from the JSON payload and insert the relationship using `db.add_contact`.
+- Modified [host-server/src/database.rs](host-server/src/database.rs) to set the contact `status` column to `'accepted'` on insert, ensuring contacts are immediately retrievable by `get_contacts`.
+- Added `base64` dependency and `FromRef` import to [host-server/Cargo.toml](host-server/Cargo.toml).
+- Created [docs/adr/0011-http-api-routing-and-authorization-middleware.md](docs/adr/0011-http-api-routing-and-authorization-middleware.md) documenting the authorization and routing design.
+- Verified workspace builds and test suites.
+
+### Metrics
+- **Files Modified**: 3 (`host-server/Cargo.toml`, `host-server/src/database.rs`, `host-server/src/main.rs`).
+- **Files Created**: 1 (`docs/adr/0011-http-api-routing-and-authorization-middleware.md`).
+- **Endpoints Upgraded**: 4 (`GET /api/messages/:user_id`, `POST /api/messages/send`, `GET /api/contacts`, `POST /api/contacts/add`).
+- **Build Status**: 100% clean compilation and test pass.
 
 
 

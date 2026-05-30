@@ -2,6 +2,20 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.7] - 2026-05-30
+
+### Added
+- Implemented `AuthedUser` custom Axum extractor in [host-server/src/main.rs](host-server/src/main.rs) for JWT-based request authorization via `Authorization: Bearer <token>` headers.
+- Created [docs/adr/0011-http-api-routing-and-authorization-middleware.md](docs/adr/0011-http-api-routing-and-authorization-middleware.md) documenting API routing and auth middleware decisions.
+
+### Changed
+- Upgraded `GET /api/messages/:user_id` handler in [host-server/src/main.rs](host-server/src/main.rs) to query the database using `db.get_messages_between_users`.
+- Upgraded `POST /api/messages/send` handler to decode base64-encoded `encrypted_content` and `nonce` payloads and persist via `db.save_message`.
+- Upgraded `GET /api/contacts` handler to fetch contacts from the database using `db.get_contacts`.
+- Upgraded `POST /api/contacts/add` handler to insert contact relationships using `db.add_contact`.
+- Modified `add_contact` query in [host-server/src/database.rs](host-server/src/database.rs) to set `status = 'accepted'` on insert.
+- Added `base64` dependency and `FromRef` import in [host-server/Cargo.toml](host-server/Cargo.toml).
+
 ## [0.1.6] - 2026-05-30
 
 ### Added

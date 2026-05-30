@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{FromRef, Path, State},
     http::header::{HeaderMap, SET_COOKIE},
     http::{HeaderName, HeaderValue},
     response::Json,
@@ -44,6 +44,48 @@ struct ApiResponse<T> {
     success: bool,
     data: Option<T>,
     message: String,
+}
+
+struct AuthedUser {
+    pub id: Uuid,
+    pub username: String,
+}
+
+#[axum::async_trait]
+impl<S> axum::extract::FromRequestParts<S> for AuthedUser
+where
+    Arc<AppState>: axum::extract::FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = QSafeError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let app_state = Arc::<AppState>::from_ref(state);
+
+        let auth_header = parts
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| QSafeError::Unauthorized("Missing Authorization header".to_string()))?;
+
+        if !auth_header.starts_with("Bearer ") {
+            return Err(QSafeError::Unauthorized(
+                "Invalid Authorization header format".to_string(),
+            ));
+        }
+
+        let token = &auth_header["Bearer ".len()..];
+        let user_id = app_state.auth.extract_user_id_from_token(token)?;
+        let claims = app_state.auth.verify_token(token)?;
+
+        Ok(AuthedUser {
+            id: user_id,
+            username: claims.username,
+        })
+    }
 }
 
 #[tokio::main]
@@ -345,21 +387,69 @@ async fn logout() -> Result<(HeaderMap, Json<ApiResponse<String>>), QSafeError> 
     ))
 }
 
+#[derive(serde::Deserialize)]
+struct SendMessagePayload {
+    pub recipient_id: Uuid,
+    pub encrypted_content: String,
+    pub nonce: String,
+    pub session_id: Uuid,
+}
+
+#[derive(serde::Deserialize)]
+struct AddContactPayload {
+    pub contact_id: Uuid,
+}
+
 async fn get_messages(
-    State(_state): State<Arc<AppState>>,
-    Path(_user_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+    authed_user: AuthedUser,
+    Path(target_user_id_str): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, QSafeError> {
+    let target_user_id = Uuid::parse_str(&target_user_id_str)
+        .map_err(|_| QSafeError::BadRequest("Invalid target user ID".to_string()))?;
+
+    let messages = state
+        .db
+        .get_messages_between_users(&authed_user.id, &target_user_id, 50)
+        .await?;
+
+    let serialized_messages: Vec<serde_json::Value> = messages
+        .into_iter()
+        .map(|msg| serde_json::to_value(msg).unwrap())
+        .collect();
+
     Ok(Json(ApiResponse {
         success: true,
-        data: Some(vec![]),
+        data: Some(serialized_messages),
         message: "Messages retrieved".to_string(),
     }))
 }
 
 async fn send_message(
-    State(_state): State<Arc<AppState>>,
-    Json(_payload): Json<serde_json::Value>,
+    State(state): State<Arc<AppState>>,
+    authed_user: AuthedUser,
+    Json(payload): Json<SendMessagePayload>,
 ) -> Result<Json<ApiResponse<String>>, QSafeError> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+    let encrypted_content = STANDARD
+        .decode(&payload.encrypted_content)
+        .map_err(|_| QSafeError::BadRequest("Invalid base64 encrypted content".to_string()))?;
+    let nonce = STANDARD
+        .decode(&payload.nonce)
+        .map_err(|_| QSafeError::BadRequest("Invalid base64 nonce".to_string()))?;
+
+    state
+        .db
+        .save_message(
+            &authed_user.id,
+            &payload.recipient_id,
+            &encrypted_content,
+            &nonce,
+            &payload.session_id,
+        )
+        .await?;
+
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Message sent".to_string()),
@@ -368,19 +458,40 @@ async fn send_message(
 }
 
 async fn get_contacts(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
+    authed_user: AuthedUser,
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, QSafeError> {
+    let contacts = state.db.get_contacts(&authed_user.id).await?;
+
+    let serialized_contacts: Vec<serde_json::Value> = contacts
+        .into_iter()
+        .map(|c| {
+            serde_json::json!({
+                "id": c.id,
+                "username": c.username,
+                "email": c.email,
+                "created_at": c.created_at,
+            })
+        })
+        .collect();
+
     Ok(Json(ApiResponse {
         success: true,
-        data: Some(vec![]),
+        data: Some(serialized_contacts),
         message: "Contacts retrieved".to_string(),
     }))
 }
 
 async fn add_contact(
-    State(_state): State<Arc<AppState>>,
-    Json(_payload): Json<serde_json::Value>,
+    State(state): State<Arc<AppState>>,
+    authed_user: AuthedUser,
+    Json(payload): Json<AddContactPayload>,
 ) -> Result<Json<ApiResponse<String>>, QSafeError> {
+    state
+        .db
+        .add_contact(&authed_user.id, &payload.contact_id)
+        .await?;
+
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Contact added".to_string()),
