@@ -46,6 +46,7 @@ The project is organized into a Cargo Workspace spanning host and embedded targe
 
 ## Documentation
 
+- **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)**: Complete REST and WebSocket endpoint specifications for integrating with the gateway.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, hardware integration boundaries, and observability metrics.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
 - **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
