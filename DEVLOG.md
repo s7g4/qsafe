@@ -241,6 +241,26 @@ Implement standardized memory zeroization routines for sensitive key pairs, shar
 - **Files Created**: 1 (`docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md`).
 - **Build Status**: 100% clean check, format, clippy, and test pass.
 
+## 2026-05-30: Async WebSocket Registry & Concurrency Refactoring
+
+### Goal
+Implement a thread-safe lock-free client registry utilizing Tokio channels (Actor model) and database-backed message buffering for offline recipients.
+
+### Work Completed
+- Created the database schema migration: [0002_offline_messages.sql](host-server/migrations/0002_offline_messages.sql) for offline message queuing.
+- Derived `Clone` on `Database` and implemented methods `save_offline_message`, `get_offline_messages`, and `clear_offline_messages` in [host-server/src/database.rs](host-server/src/database.rs).
+- Implemented `WebSocketRegistry`, `RegistryCommand`, and `WebSocketRegistryActor` in [host-server/src/websocket.rs](host-server/src/websocket.rs) using the actor model.
+- Refactored `handle_socket` to route real-time messages online, buffer messages to the database queue when recipients are offline, and automatically deliver and clear pending messages on connection (`Join`).
+- Refactored [host-server/src/main.rs](host-server/src/main.rs) to initialize the registry actor, store the registry in `AppState`, and pass state/database parameters to the upgraded WebSocket route handler.
+- Created [docs/adr/0009-async-websocket-registry-and-offline-queues.md](docs/adr/0009-async-websocket-registry-and-offline-queues.md) documenting the architecture change.
+- Verified workspace builds, formatting, clippy static analysis, and test suites.
+
+### Metrics
+- **Files Modified**: 3 (`host-server/src/database.rs`, `host-server/src/websocket.rs`, `host-server/src/main.rs`).
+- **Files Created**: 2 (`host-server/migrations/0002_offline_messages.sql`, `docs/adr/0009-async-websocket-registry-and-offline-queues.md`).
+- **Lock Contention**: Replaced blocking `Arc<Mutex<HashMap<...>>>` with async channels (actor model).
+- **Build Status**: 100% clean check, format, clippy, and test pass.
+
 
 
 

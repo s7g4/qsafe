@@ -41,8 +41,18 @@ pub struct Contact {
     pub status: String, // "pending", "accepted", "blocked"
 }
 
+#[derive(Clone)]
 pub struct Database {
     pool: PgPool,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct OfflineMessage {
+    pub id: Uuid,
+    pub recipient_id: Uuid,
+    pub sender_id: Uuid,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
 }
 
 impl Database {
@@ -186,5 +196,47 @@ impl Database {
         .await?;
 
         Ok(contacts)
+    }
+
+    // Offline message operations
+    pub async fn save_offline_message(
+        &self,
+        recipient_id: &Uuid,
+        sender_id: &Uuid,
+        content: &str,
+    ) -> Result<OfflineMessage, sqlx::Error> {
+        let msg = sqlx::query_as::<_, OfflineMessage>(
+            "INSERT INTO offline_messages (recipient_id, sender_id, content) VALUES ($1, $2, $3) RETURNING *",
+        )
+        .bind(recipient_id)
+        .bind(sender_id)
+        .bind(content)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(msg)
+    }
+
+    pub async fn get_offline_messages(
+        &self,
+        recipient_id: &Uuid,
+    ) -> Result<Vec<OfflineMessage>, sqlx::Error> {
+        let msgs = sqlx::query_as::<_, OfflineMessage>(
+            "SELECT * FROM offline_messages WHERE recipient_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(recipient_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(msgs)
+    }
+
+    pub async fn clear_offline_messages(&self, recipient_id: &Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM offline_messages WHERE recipient_id = $1")
+            .bind(recipient_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
     }
 }

@@ -14,10 +14,9 @@ use qsafe_backend::{
     hardware::HsmConnection,
     qkd::QKDProtocol,
     qrng::QRNG,
-    websocket::handle_websocket,
+    websocket::{handle_websocket, WebSocketRegistry},
 };
 use serde::Serialize;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
@@ -31,17 +30,7 @@ struct AppState {
     hsm: Arc<Mutex<Box<dyn HsmConnection>>>,
     qkd: Arc<Mutex<QKDProtocol>>,
     qrng: Arc<Mutex<QRNG>>,
-    connected_clients: Arc<
-        Mutex<
-            HashMap<
-                String,
-                futures_util::stream::SplitSink<
-                    axum::extract::ws::WebSocket,
-                    axum::extract::ws::Message,
-                >,
-            >,
-        >,
-    >,
+    registry: Arc<WebSocketRegistry>,
 }
 
 #[derive(Serialize)]
@@ -74,7 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let qkd = Arc::new(Mutex::new(QKDProtocol::new()));
     let qrng = Arc::new(Mutex::new(QRNG::new()));
-    let connected_clients = Arc::new(Mutex::new(HashMap::new()));
+    let (registry, registry_actor) = WebSocketRegistry::new();
+    let registry = Arc::new(registry);
+    tokio::spawn(registry_actor.run());
     let state = Arc::new(AppState {
         db,
         auth,
@@ -82,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         hsm,
         qkd,
         qrng,
-        connected_clients,
+        registry,
     });
 
     let app = Router::new()
@@ -98,8 +89,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             "/ws",
             get(
-                |state: State<Arc<AppState>>, ws: axum::extract::ws::WebSocketUpgrade| {
-                    handle_websocket(ws, state.connected_clients.clone())
+                |State(state): State<Arc<AppState>>, ws: axum::extract::ws::WebSocketUpgrade| {
+                    handle_websocket(ws, state.registry.clone(), state.db.clone())
                 },
             ),
         )

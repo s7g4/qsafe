@@ -2,6 +2,18 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.5] - 2026-05-30
+
+### Added
+- Created [host-server/migrations/0002_offline_messages.sql](host-server/migrations/0002_offline_messages.sql) to define the schema for buffering offline messages.
+- Created [docs/adr/0009-async-websocket-registry-and-offline-queues.md](docs/adr/0009-async-websocket-registry-and-offline-queues.md) to record the design of the actor-model WebSocket registry and database queues.
+
+### Changed
+- Refactored [host-server/src/database.rs](host-server/src/database.rs) to derive `Clone` on `Database` and implement `save_offline_message`, `get_offline_messages`, and `clear_offline_messages`.
+- Refactored [host-server/src/websocket.rs](host-server/src/websocket.rs) to use non-blocking Tokio channels in `WebSocketRegistry` and `WebSocketRegistryActor` instead of `Arc<Mutex<HashMap<...>>>`.
+- Upgraded WebSocket connection socket split tasks in [host-server/src/websocket.rs](host-server/src/websocket.rs) to handle asynchronous read/write routing, delivering and queuing messages.
+- Modified [host-server/src/main.rs](host-server/src/main.rs) to initialize and spawn the registry actor, register it in `AppState`, and route incoming WebSocket upgrades to the revised controller.
+
 ## [0.1.4] - 2026-05-30
 
 ### Added
