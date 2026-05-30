@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, State},
     http::header::{HeaderMap, SET_COOKIE},
-    http::HeaderValue,
+    http::{HeaderName, HeaderValue},
     response::Json,
     routing::{get, post},
     Router,
@@ -17,9 +17,15 @@ use qsafe_backend::{
     websocket::{handle_websocket, WebSocketRegistry},
 };
 use serde::Serialize;
+use std::future::ready;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
+use tower_http::{
+    request_id::{MakeRequestUuid, SetRequestIdLayer},
+    trace::TraceLayer,
+};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 #[allow(dead_code)]
@@ -42,6 +48,19 @@ struct ApiResponse<T> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing subscriber for structured JSON logging
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer().json())
+        .init();
+
+    // Initialize Prometheus exporter
+    let prometheus_handle = metrics_exporter_prometheus::PrometheusBuilder::new()
+        .install_recorder()
+        .map_err(|e| format!("Failed to install Prometheus recorder: {}", e))?;
+
     // Load and validate environment configuration
     let config = qsafe_backend::config::Config::load()?;
     // Initialize services
@@ -76,6 +95,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         registry,
     });
 
+    let x_request_id = HeaderName::from_static("x-request-id");
+
     let app = Router::new()
         .route("/api/health", get(health_check))
         .route("/api/auth/register", post(register))
@@ -94,7 +115,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
             ),
         )
+        .route("/metrics", get(move || ready(prometheus_handle.render())))
         .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
+        .layer(SetRequestIdLayer::new(
+            x_request_id.clone(),
+            MakeRequestUuid,
+        ))
         .with_state(state);
 
     let addr = format!("0.0.0.0:{}", config.port);

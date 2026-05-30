@@ -14,7 +14,7 @@ rand_pcg = "0.3"
 # Web framework
 axum = { version = "0.7", features = ["ws"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "fs"] }
+tower-http = { version = "0.5", features = ["cors", "fs", "trace", "request-id"] }
 # Database
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
@@ -27,6 +27,10 @@ thiserror = "1.0"
 # WebSockets
 tokio-tungstenite = "0.21"
 futures-util = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.22"
+metrics-exporter-prometheus = "0.15"
 # For web interface (optional)
 wasm-bindgen = { version = "0.2", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["console"] }

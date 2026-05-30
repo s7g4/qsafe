@@ -261,6 +261,27 @@ Implement a thread-safe lock-free client registry utilizing Tokio channels (Acto
 - **Lock Contention**: Replaced blocking `Arc<Mutex<HashMap<...>>>` with async channels (actor model).
 - **Build Status**: 100% clean check, format, clippy, and test pass.
 
+## 2026-05-30: Observability, Tracing, & Telemetry
+
+### Goal
+Instrument the server gateway with structured JSON logging, request-correlation IDs, and a Prometheus metrics collection route (`/metrics`).
+
+### Work Completed
+- Added dependencies: `tracing`, `tracing-subscriber`, `metrics`, and `metrics-exporter-prometheus` to [host-server/Cargo.toml](host-server/Cargo.toml) and configured features for `tower-http`.
+- Initialized `tracing-subscriber` registry and formatted all standard stdout logging in JSON layout in [host-server/src/main.rs](host-server/src/main.rs).
+- Integrated `tower_http::request_id::SetRequestIdLayer` and `tower_http::trace::TraceLayer` middleware in Axum to inject correlation IDs (v4 UUIDs) into trace spans.
+- Initialized `PrometheusBuilder` and exposed `/metrics` endpoint inside [host-server/src/main.rs](host-server/src/main.rs).
+- Instrumented active socket session counts, messages sent, and messages buffered metrics inside [host-server/src/websocket.rs](host-server/src/websocket.rs).
+- Created [docs/adr/0010-observability-tracing-and-telemetry.md](docs/adr/0010-observability-tracing-and-telemetry.md).
+- Verified workspace builds, formatting, clippy static analysis, and test suites.
+
+### Metrics
+- **Files Modified**: 3 (`host-server/Cargo.toml`, `host-server/src/main.rs`, `host-server/src/websocket.rs`).
+- **Files Created**: 1 (`docs/adr/0010-observability-tracing-and-telemetry.md`).
+- **Telemetry Hook points**: 3 custom metrics (1 gauge, 2 counters).
+- **Log Format**: Structured JSON stream with unique Correlation IDs per HTTP task.
+- **Build Status**: 100% clean check, format, clippy, and test pass.
+
 
 
 

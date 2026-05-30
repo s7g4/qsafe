@@ -2,6 +2,18 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.6] - 2026-05-30
+
+### Added
+- Created [docs/adr/0010-observability-tracing-and-telemetry.md](docs/adr/0010-observability-tracing-and-telemetry.md) documenting design choices for logging and monitoring.
+- Integrated `metrics` and `metrics-exporter-prometheus` to publish performance telemetry.
+- Integrated `tracing` and `tracing-subscriber` for structured JSON logging.
+
+### Changed
+- Modified [host-server/Cargo.toml](host-server/Cargo.toml) to import telemetry and tracing dependencies, and enabled trace/request-id layers in `tower-http`.
+- Modified [host-server/src/main.rs](host-server/src/main.rs) to boot the tracing subscriber, set up the Prometheus metrics recorder, expose a `/metrics` route, and add request correlation middlewares (`SetRequestIdLayer` and `TraceLayer`).
+- Modified [host-server/src/websocket.rs](host-server/src/websocket.rs) to instrument metrics for active WebSocket sessions, messages sent count, and offline message queue buffering counts.
+
 ## [0.1.5] - 2026-05-30
 
 ### Added

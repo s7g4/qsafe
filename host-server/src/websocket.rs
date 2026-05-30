@@ -150,6 +150,9 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
             if let Ok(ws_msg) = serde_json::from_str::<WSMessage>(&text) {
                 match ws_msg {
                     WSMessage::Join { session_id } => {
+                        if user_id.is_none() {
+                            metrics::gauge!("qsafe_active_websocket_connections").increment(1.0);
+                        }
                         user_id = Some(session_id.clone());
                         registry.register(session_id.clone(), tx.clone());
 
@@ -179,6 +182,7 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
                         recipient_id,
                     } => {
                         if let Some(ref sender_id) = user_id {
+                            metrics::counter!("qsafe_messages_sent_total").increment(1);
                             let response = WSMessage::MessageReceived {
                                 message: content.clone(),
                                 sender_id: sender_id.clone(),
@@ -191,6 +195,7 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
 
                                 // Buffer message in the database offline queue if client is offline
                                 if !delivered {
+                                    metrics::counter!("qsafe_messages_buffered_total").increment(1);
                                     if let (Ok(r_uuid), Ok(s_uuid)) =
                                         (Uuid::parse_str(&recipient_id), Uuid::parse_str(sender_id))
                                     {
@@ -214,6 +219,7 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
     // Clean up when the socket closes
     if let Some(id) = user_id {
         registry.deregister(id);
+        metrics::gauge!("qsafe_active_websocket_connections").decrement(1.0);
     }
 
     // Abort the write task when receiver loop ends
