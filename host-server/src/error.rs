@@ -34,6 +34,9 @@ pub enum QSafeError {
     #[error("Bad request: {0}")]
     BadRequest(String),
 
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+
     #[error("Internal server error: {0}")]
     Internal(String),
 }
@@ -48,26 +51,45 @@ impl IntoResponse for QSafeError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             QSafeError::Database(ref e) => {
-                // Generified error to prevent database schema exposure to client
+                // Log the real error server-side, return generic message to client
+                tracing::error!(error = %e, "Database operation failed");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Database error: {}", e),
+                    "An internal database error occurred".to_string(),
                 )
             }
-            QSafeError::Crypto(ref msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            QSafeError::Crypto(ref msg) => {
+                tracing::error!(error = %msg, "Cryptographic operation failed");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "A cryptographic operation failed".to_string(),
+                )
+            }
             QSafeError::Argon2(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to process authentication hash".to_string(),
             ),
-            QSafeError::Jwt(ref e) => (
-                StatusCode::UNAUTHORIZED,
-                format!("Token validation failed: {}", e),
-            ),
+            QSafeError::Jwt(ref e) => {
+                tracing::warn!(error = %e, "JWT validation failed");
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Invalid or expired token".to_string(),
+                )
+            }
             QSafeError::UserConflict(ref msg) => (StatusCode::CONFLICT, msg.clone()),
             QSafeError::Unauthorized(ref msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             QSafeError::NotFound(ref msg) => (StatusCode::NOT_FOUND, msg.clone()),
             QSafeError::BadRequest(ref msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-            QSafeError::Internal(ref msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            QSafeError::ValidationError(ref msg) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, msg.clone())
+            }
+            QSafeError::Internal(ref msg) => {
+                tracing::error!(error = %msg, "Internal server error");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred".to_string(),
+                )
+            }
         };
 
         let body = Json(json!({

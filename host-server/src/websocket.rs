@@ -33,7 +33,7 @@ pub enum WSMessage {
 pub enum RegistryCommand {
     Register {
         user_id: String,
-        sender: mpsc::UnboundedSender<Message>,
+        sender: mpsc::Sender<Message>,
     },
     Deregister {
         user_id: String,
@@ -47,12 +47,12 @@ pub enum RegistryCommand {
 
 #[derive(Clone)]
 pub struct WebSocketRegistry {
-    cmd_tx: mpsc::UnboundedSender<RegistryCommand>,
+    cmd_tx: mpsc::Sender<RegistryCommand>,
 }
 
 impl WebSocketRegistry {
     pub fn new() -> (Self, WebSocketRegistryActor) {
-        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let (cmd_tx, cmd_rx) = mpsc::channel(1024);
         (
             Self { cmd_tx },
             WebSocketRegistryActor {
@@ -62,14 +62,15 @@ impl WebSocketRegistry {
         )
     }
 
-    pub fn register(&self, user_id: String, sender: mpsc::UnboundedSender<Message>) {
+    pub async fn register(&self, user_id: String, sender: mpsc::Sender<Message>) {
         let _ = self
             .cmd_tx
-            .send(RegistryCommand::Register { user_id, sender });
+            .send(RegistryCommand::Register { user_id, sender })
+            .await;
     }
 
-    pub fn deregister(&self, user_id: String) {
-        let _ = self.cmd_tx.send(RegistryCommand::Deregister { user_id });
+    pub async fn deregister(&self, user_id: String) {
+        let _ = self.cmd_tx.send(RegistryCommand::Deregister { user_id }).await;
     }
 
     pub async fn send_message(&self, recipient_id: String, message: Message) -> bool {
@@ -81,6 +82,7 @@ impl WebSocketRegistry {
                 message,
                 response_tx,
             })
+            .await
             .is_err()
         {
             return false;
@@ -90,8 +92,8 @@ impl WebSocketRegistry {
 }
 
 pub struct WebSocketRegistryActor {
-    cmd_rx: mpsc::UnboundedReceiver<RegistryCommand>,
-    clients: HashMap<String, mpsc::UnboundedSender<Message>>,
+    cmd_rx: mpsc::Receiver<RegistryCommand>,
+    clients: HashMap<String, mpsc::Sender<Message>>,
 }
 
 impl WebSocketRegistryActor {
@@ -110,7 +112,7 @@ impl WebSocketRegistryActor {
                     response_tx,
                 } => {
                     let success = if let Some(sender) = self.clients.get(&recipient_id) {
-                        sender.send(message).is_ok()
+                        sender.try_send(message).is_ok()
                     } else {
                         false
                     };
@@ -125,16 +127,40 @@ pub async fn handle_websocket(
     ws: WebSocketUpgrade,
     registry: Arc<WebSocketRegistry>,
     db: Database,
+    user_id: Uuid,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(socket, registry, db))
+    ws.on_upgrade(move |socket| handle_socket(socket, registry, db, user_id))
 }
 
-async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: Database) {
+async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: Database, user_id: Uuid) {
     let (mut sender, mut receiver) = socket.split();
-    let mut user_id: Option<String> = None;
+    let session_id = user_id.to_string();
 
-    // Create an unbounded channel for writing to this WebSocket asynchronously
-    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    metrics::gauge!("qsafe_active_websocket_connections").increment(1.0);
+
+    // Create a bounded channel for writing to this WebSocket asynchronously
+    let (tx, mut rx) = mpsc::channel::<Message>(1024);
+
+    registry.register(session_id.clone(), tx.clone()).await;
+
+    // Deliver buffered offline messages from the database
+    match db.get_offline_messages(&user_id).await {
+        Ok(offline_msgs) => {
+            for o_msg in offline_msgs {
+                let delivery = WSMessage::MessageReceived {
+                    message: o_msg.content,
+                    sender_id: o_msg.sender_id.to_string(),
+                };
+                if let Ok(json) = serde_json::to_string(&delivery) {
+                    let _ = tx.try_send(Message::Text(json));
+                }
+            }
+            let _ = db.clear_offline_messages(&user_id).await;
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "Error fetching offline messages");
+        }
+    }
 
     // Spawn a writer task to route messages to the websocket client
     let write_task = tokio::spawn(async move {
@@ -149,62 +175,35 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
         if let Message::Text(text) = msg {
             if let Ok(ws_msg) = serde_json::from_str::<WSMessage>(&text) {
                 match ws_msg {
-                    WSMessage::Join { session_id } => {
-                        if user_id.is_none() {
-                            metrics::gauge!("qsafe_active_websocket_connections").increment(1.0);
-                        }
-                        user_id = Some(session_id.clone());
-                        registry.register(session_id.clone(), tx.clone());
-
-                        // Deliver buffered offline messages from the database
-                        if let Ok(uuid) = Uuid::parse_str(&session_id) {
-                            match db.get_offline_messages(&uuid).await {
-                                Ok(offline_msgs) => {
-                                    for o_msg in offline_msgs {
-                                        let delivery = WSMessage::MessageReceived {
-                                            message: o_msg.content,
-                                            sender_id: o_msg.sender_id.to_string(),
-                                        };
-                                        if let Ok(json) = serde_json::to_string(&delivery) {
-                                            let _ = tx.send(Message::Text(json));
-                                        }
-                                    }
-                                    let _ = db.clear_offline_messages(&uuid).await;
-                                }
-                                Err(e) => {
-                                    eprintln!("Error fetching offline messages: {:?}", e);
-                                }
-                            }
-                        }
+                    WSMessage::Join { .. } => {
+                        // Ignored, auth is handled at connection now
                     }
                     WSMessage::SendMessage {
                         content,
                         recipient_id,
                     } => {
-                        if let Some(ref sender_id) = user_id {
-                            metrics::counter!("qsafe_messages_sent_total").increment(1);
-                            let response = WSMessage::MessageReceived {
-                                message: content.clone(),
-                                sender_id: sender_id.clone(),
-                            };
-                            if let Ok(json) = serde_json::to_string(&response) {
-                                // Try sending to active online recipient
-                                let delivered = registry
-                                    .send_message(recipient_id.clone(), Message::Text(json))
-                                    .await;
+                        metrics::counter!("qsafe_messages_sent_total").increment(1);
+                        let response = WSMessage::MessageReceived {
+                            message: content.clone(),
+                            sender_id: session_id.clone(),
+                        };
+                        if let Ok(json) = serde_json::to_string(&response) {
+                            // Try sending to active online recipient
+                            let delivered = registry
+                                .send_message(recipient_id.clone(), Message::Text(json))
+                                .await;
 
-                                // Buffer message in the database offline queue if client is offline
-                                if !delivered {
-                                    metrics::counter!("qsafe_messages_buffered_total").increment(1);
-                                    if let (Ok(r_uuid), Ok(s_uuid)) =
-                                        (Uuid::parse_str(&recipient_id), Uuid::parse_str(sender_id))
+                            // Buffer message in the database offline queue if client is offline
+                            if !delivered {
+                                if let Ok(recipient_uuid) = Uuid::parse_str(&recipient_id) {
+                                    if let Err(e) = db
+                                        .save_offline_message(&recipient_uuid, &user_id, &content)
+                                        .await
                                     {
-                                        if let Err(e) = db
-                                            .save_offline_message(&r_uuid, &s_uuid, &content)
-                                            .await
-                                        {
-                                            eprintln!("Failed to queue offline message: {:?}", e);
-                                        }
+                                        tracing::error!(error = %e, "Failed to buffer offline message");
+                                    } else {
+                                        metrics::counter!("qsafe_messages_buffered_total")
+                                            .increment(1);
                                     }
                                 }
                             }
@@ -216,12 +215,8 @@ async fn handle_socket(socket: WebSocket, registry: Arc<WebSocketRegistry>, db: 
         }
     }
 
-    // Clean up when the socket closes
-    if let Some(id) = user_id {
-        registry.deregister(id);
-        metrics::gauge!("qsafe_active_websocket_connections").decrement(1.0);
-    }
-
-    // Abort the write task when receiver loop ends
+    // Cleanup when client disconnects
+    registry.deregister(session_id.clone()).await;
     write_task.abort();
+    metrics::gauge!("qsafe_active_websocket_connections").decrement(1.0);
 }

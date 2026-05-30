@@ -1,34 +1,52 @@
 # Q-Safe: Quantum-Safe Messaging Gateway
 
-Q-Safe is a secure messaging gateway built in Rust that integrates post-quantum hybrid cryptography with physical Hardware Security Modules (HSMs). 
+Q-Safe is an industry-grade, secure messaging gateway built in Rust that integrates post-quantum hybrid cryptography with physical Hardware Security Modules (HSMs).
 
-Originally built as a student hobby project exploring basic Rust networking and simulated cryptography, this project is being systematically refactored into an industry-grade systems portfolio project, integrating bare-metal Embedded Rust with post-quantum cryptography.
+Built to defend against Harvest-Now-Decrypt-Later (HNDL) attacks, Q-Safe leverages a zero-trust architecture, strict memory sanitization, and bare-metal RP2040 microcontrollers acting as dedicated cryptographic offloading engines.
 
-## Project Architecture & Roadmap
-The project is organized into a Cargo Workspace:
-- `host-server/`: The messaging backend built on Axum, managing WebSocket routing and SQLx storage.
-- `firmware/`: Bare-metal Embedded Rust firmware (targeting the RP2040 microcontroller) executing key decapsulations.
-- `common/`: Shared Type-Length-Value (TLV) packet definitions compiled for both host and device targets.
+## Architecture
 
-### Development Roadmap
-- [x] **Project Audit & Security Baseline**: Audit legacy database initialization, connection handling, and cryptographic stubs.
-- [x] **Product Vision & Threat Model**: Formulate the threat model (HNDL attacks, host memory vulnerability) and hardware token design.
-- [x] **Research Foundation**: Technical study of Module-Lattice KEM (FIPS 203), Embassy async runtime, and serial transmission error correction.
-- [x] **Architecture Design**: Decoupling workspace crates and mapping interface sequences.
-- [x] **Engineering Roadmap**: Structuring milestones, deliverables, metrics, and commit targets.
-- [x] **Documentation & Observability System**: Initializing README, ADRs, metrics registers, and tracing specs.
-- [x] **CI/CD Automation Design**: Defining formatting, linting, security scanning, and target build checks.
-- [ ] **Database & Config Migration**: Transitioning to SQLx migrations and validated config loaders.
-- [ ] **Secure Authentication & Session Lifecycle**: Implementing Argon2id password hashing and access/refresh token dual-flows.
-- [ ] **Standardized Hybrid Crypto**: Upgrading Custom Key Agreement to HPKE standards and implementing memory zeroization.
-- [ ] **WebSocket Registry**: Rebuilding the async actor registry to route client messages securely.
+The project is organized into a Cargo Workspace spanning host and embedded targets:
+- `host-server/`: The messaging backend built on Axum, managing WebSocket routing, PostgreSQL (SQLx) storage, authentication, and HTTP endpoints.
+- `firmware/`: Bare-metal Embedded Rust firmware (targeting the RP2040 microcontroller) executing secure key decapsulations and QRNG generation.
+- `common/`: Shared Type-Length-Value (TLV) packet definitions compiled for both host and device targets, enabling zero-copy `#[no_std]` serial communication.
 
-## Documentation Index
-- **[PROJECT_AUDIT.md](PROJECT_AUDIT.md)**: Catalog of legacy tech debt, broken stubs, and vulnerabilities.
-- **[VISION.md](VISION.md)**: Product positioning, threat modeling, and HSM hardware specifications.
-- **[RESEARCH.md](RESEARCH.md)**: Cryptographic algorithms, TLV serial framing, and Embassy runtime specs.
+## Production-Ready Features
+
+- **Post-Quantum Cryptography**: Module-Lattice KEM (ML-KEM / FIPS 203) integrated with X25519 for hybrid key exchange.
+- **Hardware Security Module**: Offloads quantum-safe decapsulation to a physical RP2040 microcontroller via highly-reliable, CRC-checked TLV framing. Includes a software Mock HSM for local development.
+- **Strict Authentication**: Argon2id password hashing, Dual-JWT architecture (short-lived access + secure HttpOnly refresh), and query-based WebSocket token authorization.
+- **Hardened Security**: Protected against credential stuffing (Rate Limiting via `tower_governor`), memory exhaustion (Bounded Channels), leaky errors (Error Sanitization), and insecure origins (Configurable CORS).
+- **Graceful Shutdown**: Zero-drop active request handling during SIGTERM/CTRL+C restarts.
+- **Observability**: Exhaustive Prometheus metrics (`/metrics`) tracking latencies, connections, and hardware throughput, paired with `tracing` spans and `x-request-id` headers.
+- **Deployment Strategy**: Multi-stage Dockerfile and `docker-compose.yml` for isolated deployment alongside PostgreSQL 16.
+
+## Getting Started
+
+### Local Development (Mock HSM)
+
+1. **Start the database**:
+   ```bash
+   docker-compose up -d postgres
+   ```
+2. **Setup Environment**:
+   Copy `.env.example` to `.env` and fill in the secrets. Ensure `HSM_MOCK=true`.
+3. **Run the API**:
+   ```bash
+   cargo run -p qsafe-backend
+   ```
+
+### Production Deployment
+
+1. Configure `.env` with strong secrets and set `HSM_MOCK=false` with the correct `HSM_PORT` (e.g. `/dev/ttyACM0`).
+2. Build and run using Docker Compose:
+   ```bash
+   docker-compose up -d --build
+   ```
+
+## Documentation
+
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, hardware integration boundaries, and observability metrics.
-- **[ROADMAP.md](ROADMAP.md)**: Development checkpoints, success criteria, and expected commit targets.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
 - **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
 - **[docs/adr/](docs/adr/)**: Architectural Decision Records (ADRs) tracking design updates and transitions.

@@ -1,8 +1,8 @@
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{FromRef, Path, Query, State},
     http::header::{HeaderMap, SET_COOKIE},
-    http::{HeaderName, HeaderValue},
-    response::Json,
+    http::{HeaderName, HeaderValue, Method},
+    response::{IntoResponse, Json},
     routing::{get, post},
     Router,
 };
@@ -20,11 +20,12 @@ use serde::Serialize;
 use std::future::ready;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::{
     request_id::{MakeRequestUuid, SetRequestIdLayer},
     trace::TraceLayer,
 };
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
@@ -46,6 +47,7 @@ struct ApiResponse<T> {
     message: String,
 }
 
+#[allow(dead_code)]
 struct AuthedUser {
     pub id: Uuid,
     pub username: String,
@@ -106,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load and validate environment configuration
     let config = qsafe_backend::config::Config::load()?;
     // Initialize services
-    let db = Database::new(&config.database_url).await?;
+    let db = Database::new(&config.database_url, config.db_max_connections).await?;
     let auth = AuthService::new(config.jwt_secret.clone());
     let crypto = Arc::new(Mutex::new(CryptoEngine::new()));
 
@@ -139,12 +141,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let x_request_id = HeaderName::from_static("x-request-id");
 
+    // Rate limiter configuration: 10 requests per minute (1 req / 6 sec) with burst of 5
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_millisecond(6000)
+            .burst_size(5)
+            .finish()
+            .unwrap(),
+    );
+    let rate_limiter = GovernorLayer {
+        config: governor_conf,
+    };
+
+    let auth_routes = Router::new()
+        .route("/register", post(register))
+        .route("/login", post(login))
+        .route("/refresh", post(refresh))
+        .route("/logout", post(logout))
+        .layer(rate_limiter);
+
+#[derive(serde::Deserialize)]
+struct WsQuery {
+    token: String,
+}
+
     let app = Router::new()
         .route("/api/health", get(health_check))
-        .route("/api/auth/register", post(register))
-        .route("/api/auth/login", post(login))
-        .route("/api/auth/refresh", post(refresh))
-        .route("/api/auth/logout", post(logout))
+        .nest("/api/auth", auth_routes)
         .route("/api/messages/:user_id", get(get_messages))
         .route("/api/messages/send", post(send_message))
         .route("/api/contacts", get(get_contacts))
@@ -152,13 +175,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             "/ws",
             get(
-                |State(state): State<Arc<AppState>>, ws: axum::extract::ws::WebSocketUpgrade| {
-                    handle_websocket(ws, state.registry.clone(), state.db.clone())
+                |State(state): State<Arc<AppState>>,
+                 Query(query): Query<WsQuery>,
+                 ws: axum::extract::ws::WebSocketUpgrade| async move {
+                    let user_id = match state.auth.extract_user_id_from_token(&query.token) {
+                        Ok(id) => id,
+                        Err(_) => return axum::http::StatusCode::UNAUTHORIZED.into_response(),
+                    };
+                    handle_websocket(ws, state.registry.clone(), state.db.clone(), user_id).await
                 },
             ),
         )
         .route("/metrics", get(move || ready(prometheus_handle.render())))
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::exact(
+                    config.cors_origin.parse::<HeaderValue>().unwrap_or_else(|_| {
+                        HeaderValue::from_static("http://localhost:3000")
+                    }),
+                ))
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+                .allow_headers([axum::http::header::AUTHORIZATION, axum::http::header::CONTENT_TYPE])
+                .allow_credentials(true),
+        )
         .layer(TraceLayer::new_for_http())
         .layer(SetRequestIdLayer::new(
             x_request_id.clone(),
@@ -166,13 +205,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .with_state(state);
 
-    let addr = format!("0.0.0.0:{}", config.port);
-    println!("Q-Safe Backend Server running on {}", addr);
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], config.port));
 
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app).await?;
+    if let (Some(cert), Some(key)) = (config.tls_cert_path, config.tls_key_path) {
+        println!("Q-Safe Backend Server running with TLS on {}", addr);
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
+            .await
+            .expect("Failed to load TLS certificates");
+
+        axum_server::bind_rustls(addr, tls_config)
+            .handle(shutdown_handle())
+            .serve(app.into_make_service())
+            .await
+            .expect("Server failed");
+    } else {
+        println!("Q-Safe Backend Server running on {}", addr);
+        let listener = tokio::net::TcpListener::bind(&addr).await?;
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown_signal())
+            .await?;
+    }
 
     Ok(())
+}
+
+fn shutdown_handle() -> axum_server::Handle<std::net::SocketAddr> {
+    let handle = axum_server::Handle::new();
+    let spawn_handle = handle.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        spawn_handle.graceful_shutdown(Some(std::time::Duration::from_secs(30)));
+    });
+    handle
+}
+
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install CTRL+C signal handler");
+    tracing::info!("Shutdown signal received, starting graceful shutdown...");
 }
 
 async fn health_check() -> Json<ApiResponse<String>> {
@@ -187,6 +258,32 @@ async fn register(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<(HeaderMap, Json<ApiResponse<serde_json::Value>>), QSafeError> {
+    // Input validation
+    if req.username.len() < 3 || req.username.len() > 32 {
+        return Err(QSafeError::ValidationError(
+            "Username must be between 3 and 32 characters".to_string(),
+        ));
+    }
+    if !req
+        .username
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_')
+    {
+        return Err(QSafeError::ValidationError(
+            "Username must contain only alphanumeric characters and underscores".to_string(),
+        ));
+    }
+    if !req.email.contains('@') || !req.email.contains('.') {
+        return Err(QSafeError::ValidationError(
+            "Invalid email address format".to_string(),
+        ));
+    }
+    if req.password.len() < 8 {
+        return Err(QSafeError::ValidationError(
+            "Password must be at least 8 characters".to_string(),
+        ));
+    }
+
     // Check if user exists
     if state
         .db
@@ -435,9 +532,19 @@ async fn send_message(
     let encrypted_content = STANDARD
         .decode(&payload.encrypted_content)
         .map_err(|_| QSafeError::BadRequest("Invalid base64 encrypted content".to_string()))?;
+    if encrypted_content.len() > 1_048_576 {
+        return Err(QSafeError::ValidationError(
+            "Encrypted content exceeds 1MB limit".to_string(),
+        ));
+    }
     let nonce = STANDARD
         .decode(&payload.nonce)
         .map_err(|_| QSafeError::BadRequest("Invalid base64 nonce".to_string()))?;
+    if nonce.len() > 128 {
+        return Err(QSafeError::ValidationError(
+            "Nonce exceeds 128 byte limit".to_string(),
+        ));
+    }
 
     state
         .db

@@ -2,6 +2,27 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-05-30
+
+### Added
+- **Production Hardening Completed:** All 10 phases of the production hardening plan have been implemented and verified.
+- **Docker Deployment:** Added multi-stage `Dockerfile` (debian:bookworm-slim runtime) and `docker-compose.yml` for database and backend orchestration.
+- **HTTPS/TLS:** Integrated `axum-server` with `tls-rustls` feature to support optional TLS termination via `TLS_CERT_PATH` and `TLS_KEY_PATH` configuration.
+- **Unit & Integration Tests:** Implemented unit tests for Argon2id hashing and JWT validation in `auth.rs`, and a conditional Postgres integration test in `database.rs`.
+- **CI Pipeline:** Added `cargo audit` and `cargo deny check` steps to GitHub Actions workflow (`ci.yml`) to enforce security and licensing constraints.
+- **Rate Limiting:** Integrated `tower_governor` IP-based rate limiting (10 req/min) on authentication routes to mitigate brute-force attacks.
+
+### Changed
+- **Config & CORS:** Exposed `CORS_ORIGIN` and `DB_MAX_CONNECTIONS` to environment variables.
+- **Graceful Shutdown:** Implemented SIGINT/CTRL+C trap for `axum::serve::with_graceful_shutdown()` and `axum_server`.
+- **WebSocket Auth:** Enforced secure connection routing on WebSocket upgrades via a `token` URL query parameter, preventing unauthenticated WS connections.
+- **Memory Safety:** Replaced unbounded message channels (`mpsc::unbounded_channel`) with bounded channels (`1024` capacity, `try_send`) in `WebSocketRegistry` to prevent OOM DOS vectors.
+- **Error Sanitization:** Introduced `QSafeError::ValidationError(String)` yielding HTTP 422, halting database schema and JWT signature leaks to untrusted clients.
+- **README:** Rewrote `README.md` focusing on current production-ready capabilities and deployment guides.
+
+### Removed
+- Unused/Stale strategy documents: `PROJECT_AUDIT.md`, `ROADMAP.md`, and `VISION.md`.
+
 ## [0.1.7] - 2026-05-30
 
 ### Added

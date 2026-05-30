@@ -7,6 +7,10 @@ pub struct Config {
     pub port: u16,
     pub hsm_mock: bool,
     pub hsm_port: Option<String>,
+    pub cors_origin: String,
+    pub db_max_connections: u32,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
 }
 
 impl Config {
@@ -31,12 +35,27 @@ impl Config {
 
         let hsm_port = env::var("HSM_PORT").ok();
 
+        let cors_origin = env::var("CORS_ORIGIN")
+            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+
+        let db_max_connections = env::var("DB_MAX_CONNECTIONS")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse::<u32>()
+            .map_err(|_| "DB_MAX_CONNECTIONS must be a valid unsigned integer")?;
+
+        let tls_cert_path = env::var("TLS_CERT_PATH").ok();
+        let tls_key_path = env::var("TLS_KEY_PATH").ok();
+
         Ok(Self {
             database_url,
             jwt_secret,
             port,
             hsm_mock,
             hsm_port,
+            cors_origin,
+            db_max_connections,
+            tls_cert_path,
+            tls_key_path,
         })
     }
 }

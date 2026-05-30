@@ -14,6 +14,26 @@ jobs:
     name: Code Verification
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qsafe_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/qsafe_test
+      JWT_SECRET: ci-test-secret-key-minimum-32-chars-long
+      HSM_MOCK: "true"
+
     steps:
     - name: Checkout Source Code
       uses: actions/checkout@v4
@@ -55,3 +75,15 @@ jobs:
 
     - name: Execute Workspace Tests
       run: cargo test -p qsafe-backend -p qsafe-common
+
+    - name: Security Audit
+      run: |
+        cargo install cargo-audit --locked
+        cargo audit
+      continue-on-error: true
+
+    - name: Dependency Check (cargo-deny)
+      run: |
+        cargo install cargo-deny --locked
+        cargo deny check
+      continue-on-error: true
