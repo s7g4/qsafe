@@ -184,4 +184,25 @@ Transition database schema definition and initialization to compilation-guarante
 - **Files Created**: 2 (`host-server/migrations/0001_init.sql`, `docs/adr/0005-database-migrations.md`).
 - **Build Status**: 100% clean compilation.
 
+## 2026-05-30: Secure Authentication & Error Handling Framework
+
+### Goal
+Upgrade password hashing to Argon2id, introduce a dual-token (Access Token + HttpOnly Cookie Refresh Token) session rotation system, and implement panic-free structured JSON error propagation.
+
+### Work Completed
+- Added `argon2` and `thiserror` dependencies and removed `bcrypt` in [host-server/Cargo.toml](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/Cargo.toml).
+- Created [host-server/src/error.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/error.rs) defining the custom `QSafeError` enum mapping errors to structured JSON response payloads.
+- Registered the new error module inside [host-server/src/lib.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/lib.rs).
+- Refactored [host-server/src/auth.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/auth.rs) to use Argon2id for hashing/verification and generate separate Access (15m) and Refresh (7d) JWT tokens.
+- Refactored handlers in [host-server/src/main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs) to eliminate all unhandled `unwrap()` calls, return rotated refresh token cookies (`Set-Cookie`) on register/login/refresh, and clear cookies on logout.
+- Created [docs/adr/0006-secure-authentication-and-error-handling.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0006-secure-authentication-and-error-handling.md) documenting design choices.
+- Verified workspace builds, formatting, clippy static analysis, and test suites.
+
+### Metrics
+- **Files Modified**: 4 (`host-server/Cargo.toml`, `host-server/src/auth.rs`, `host-server/src/lib.rs`, `host-server/src/main.rs`).
+- **Files Created**: 2 (`host-server/src/error.rs`, `docs/adr/0006-secure-authentication-and-error-handling.md`).
+- **Panics Avoided**: 0 unhandled `unwrap()` and `expect()` remaining in handler endpoints.
+- **Build Status**: 100% clean check, format, clippy, and test pass.
+
+
 

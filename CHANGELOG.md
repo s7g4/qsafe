@@ -2,6 +2,19 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-05-30
+
+### Added
+- Created [host-server/src/error.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/error.rs) defining the custom `QSafeError` enum mapping workspace errors to structured JSON response payloads.
+- Added `/api/auth/refresh` and `/api/auth/logout` endpoints inside [host-server/src/main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs).
+- Created [docs/adr/0006-secure-authentication-and-error-handling.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0006-secure-authentication-and-error-handling.md) to log design decisions for auth and error handling.
+
+### Changed
+- Replaced `bcrypt` with `argon2` and added `thiserror` dependencies inside [host-server/Cargo.toml](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/Cargo.toml).
+- Upgraded password hashing and verification in [host-server/src/auth.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/auth.rs) to Argon2id.
+- Implemented Access Token (15m) and Refresh Token (7d) generation logic in [host-server/src/auth.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/auth.rs).
+- Refactored route handlers in [host-server/src/main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs) to use `QSafeError`, return HttpOnly rotated cookies, and eliminate unhandled panic-prone calls.
+
 ## [0.1.1] - 2026-05-30
 
 ### Added
@@ -28,6 +41,5 @@ All notable changes to the Q-Safe secure messaging gateway will be documented in
 - Created `host-server/src/config.rs` validating configuration environment variables at launch.
 
 ### Changed
-- Restructured the repository into a multi-crate Cargo Workspace containing `host-server/`, `common/`, and `firmware/` crates.
-- Sanitized Git history to remove all traces of tracked `.env` credentials.
+- Restructured the repository into a multi-crate Cargo Workspace containing `host-server/`, `common/`, and `firmware/` 
 - Integrated `Config::load()` in `host-server/src/main.rs` to replace raw unvalidated environment fetches.

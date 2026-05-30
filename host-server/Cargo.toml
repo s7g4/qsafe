@@ -22,7 +22,8 @@ chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
 # Auth
 jsonwebtoken = "9.0"
-bcrypt = "0.15"
+argon2 = "0.5"
+thiserror = "1.0"
 # WebSockets
 tokio-tungstenite = "0.21"
 futures-util = "0.3"

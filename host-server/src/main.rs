@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::header::{HeaderMap, SET_COOKIE},
+    http::HeaderValue,
     response::Json,
     routing::{get, post},
     Router,
@@ -9,6 +10,7 @@ use qsafe_backend::{
     auth::{AuthService, LoginRequest, RegisterRequest},
     crypto::CryptoEngine,
     database::Database,
+    error::QSafeError,
     qkd::QKDProtocol,
     qrng::QRNG,
     websocket::handle_websocket,
@@ -18,6 +20,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
+use uuid::Uuid;
 
 #[allow(dead_code)]
 struct AppState {
@@ -73,6 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/health", get(health_check))
         .route("/api/auth/register", post(register))
         .route("/api/auth/login", post(login))
+        .route("/api/auth/refresh", post(refresh))
+        .route("/api/auth/logout", post(logout))
         .route("/api/messages/:user_id", get(get_messages))
         .route("/api/messages/send", post(send_message))
         .route("/api/contacts", get(get_contacts))
@@ -108,29 +113,27 @@ async fn health_check() -> Json<ApiResponse<String>> {
 async fn register(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<(HeaderMap, Json<ApiResponse<serde_json::Value>>), QSafeError> {
     // Check if user exists
     if state
         .db
         .get_user_by_username(&req.username)
-        .await
-        .unwrap()
+        .await?
         .is_some()
     {
-        return Err(StatusCode::CONFLICT);
+        return Err(QSafeError::UserConflict(
+            "Username already taken".to_string(),
+        ));
     }
 
     // Generate quantum key pair
     let mut crypto = state.crypto.lock().await;
     let keypair = crypto
         .generate_pq_keypair()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| QSafeError::Crypto(format!("Failed to generate PQ keypair: {}", e)))?;
 
-    // Hash password
-    let password_hash = state
-        .auth
-        .hash_password(&req.password)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Hash password using Argon2id
+    let password_hash = state.auth.hash_password(&req.password)?;
 
     // Create user
     let user = state
@@ -141,72 +144,185 @@ async fn register(
             &password_hash,
             &keypair.public_key,
         )
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .await?;
 
-    // Create JWT token
-    let token = state
-        .auth
-        .create_token(&user.id, &user.username)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Create dual tokens
+    let access_token = state.auth.create_access_token(&user.id, &user.username)?;
+    let refresh_token = state.auth.create_refresh_token(&user.id, &user.username)?;
+
+    // Set refresh token in HttpOnly Cookie
+    let mut headers = HeaderMap::new();
+    let cookie_value = format!(
+        "refresh_token={}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={}",
+        refresh_token,
+        7 * 24 * 60 * 60 // 7 days in seconds
+    );
+    headers.insert(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie_value)
+            .map_err(|_| QSafeError::Internal("Cookie compilation failed".to_string()))?,
+    );
 
     let response = serde_json::json!({
-        "token": token,
+        "access_token": access_token,
         "user_id": user.id,
         "username": user.username
     });
 
-    Ok(Json(ApiResponse {
-        success: true,
-        data: Some(response),
-        message: "User registered successfully".to_string(),
-    }))
+    Ok((
+        headers,
+        Json(ApiResponse {
+            success: true,
+            data: Some(response),
+            message: "User registered successfully".to_string(),
+        }),
+    ))
 }
 
 async fn login(
     State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
+) -> Result<(HeaderMap, Json<ApiResponse<serde_json::Value>>), QSafeError> {
     // Get user
     let user = state
         .db
         .get_user_by_username(&req.username)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .await?
+        .ok_or_else(|| QSafeError::Unauthorized("Invalid username or password".to_string()))?;
 
-    // Verify password
+    // Verify password using Argon2id
     if !state
         .auth
-        .verify_password(&req.password, &user.password_hash)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .verify_password(&req.password, &user.password_hash)?
     {
-        return Err(StatusCode::UNAUTHORIZED);
+        return Err(QSafeError::Unauthorized(
+            "Invalid username or password".to_string(),
+        ));
     }
 
-    // Create JWT token
-    let token = state
-        .auth
-        .create_token(&user.id, &user.username)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Create dual tokens
+    let access_token = state.auth.create_access_token(&user.id, &user.username)?;
+    let refresh_token = state.auth.create_refresh_token(&user.id, &user.username)?;
+
+    // Set refresh token in HttpOnly Cookie
+    let mut headers = HeaderMap::new();
+    let cookie_value = format!(
+        "refresh_token={}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={}",
+        refresh_token,
+        7 * 24 * 60 * 60 // 7 days in seconds
+    );
+    headers.insert(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie_value)
+            .map_err(|_| QSafeError::Internal("Cookie compilation failed".to_string()))?,
+    );
 
     let response = serde_json::json!({
-        "token": token,
+        "access_token": access_token,
         "user_id": user.id,
         "username": user.username
     });
 
-    Ok(Json(ApiResponse {
-        success: true,
-        data: Some(response),
-        message: "Login successful".to_string(),
-    }))
+    Ok((
+        headers,
+        Json(ApiResponse {
+            success: true,
+            data: Some(response),
+            message: "Login successful".to_string(),
+        }),
+    ))
+}
+
+async fn refresh(
+    State(state): State<Arc<AppState>>,
+    headers_in: HeaderMap,
+) -> Result<(HeaderMap, Json<ApiResponse<serde_json::Value>>), QSafeError> {
+    // Extract cookie manually to avoid external dependencies
+    let cookie_header = headers_in
+        .get(axum::http::header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| QSafeError::Unauthorized("Missing refresh token cookie".to_string()))?;
+
+    let refresh_token = cookie_header
+        .split(';')
+        .map(|s| s.trim())
+        .find(|s| s.starts_with("refresh_token="))
+        .map(|s| s["refresh_token=".len()..].to_string())
+        .ok_or_else(|| QSafeError::Unauthorized("Missing refresh token cookie".to_string()))?;
+
+    // Verify token
+    let claims = state.auth.verify_token(&refresh_token)?;
+    if claims.token_type != "refresh" {
+        return Err(QSafeError::Unauthorized("Invalid token type".to_string()));
+    }
+
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| QSafeError::Unauthorized("Invalid user ID in token".to_string()))?;
+
+    // Load user to verify they still exist
+    let user = state
+        .db
+        .get_user_by_id(&user_id)
+        .await?
+        .ok_or_else(|| QSafeError::Unauthorized("User not found".to_string()))?;
+
+    // Generate rotated tokens
+    let access_token = state.auth.create_access_token(&user.id, &user.username)?;
+    let new_refresh_token = state.auth.create_refresh_token(&user.id, &user.username)?;
+
+    // Set new refresh token in HttpOnly Cookie
+    let mut headers_out = HeaderMap::new();
+    let cookie_value = format!(
+        "refresh_token={}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={}",
+        new_refresh_token,
+        7 * 24 * 60 * 60
+    );
+    headers_out.insert(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie_value)
+            .map_err(|_| QSafeError::Internal("Cookie compilation failed".to_string()))?,
+    );
+
+    let response = serde_json::json!({
+        "access_token": access_token,
+        "user_id": user.id,
+        "username": user.username
+    });
+
+    Ok((
+        headers_out,
+        Json(ApiResponse {
+            success: true,
+            data: Some(response),
+            message: "Token refreshed successfully".to_string(),
+        }),
+    ))
+}
+
+async fn logout() -> Result<(HeaderMap, Json<ApiResponse<String>>), QSafeError> {
+    // Clear refresh token cookie by setting Max-Age=0
+    let mut headers = HeaderMap::new();
+    let cookie_value = "refresh_token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0";
+    headers.insert(
+        SET_COOKIE,
+        HeaderValue::from_str(cookie_value)
+            .map_err(|_| QSafeError::Internal("Cookie compilation failed".to_string()))?,
+    );
+
+    Ok((
+        headers,
+        Json(ApiResponse {
+            success: true,
+            data: Some("Logged out".to_string()),
+            message: "Logged out successfully".to_string(),
+        }),
+    ))
 }
 
 async fn get_messages(
     State(_state): State<Arc<AppState>>,
     Path(_user_id): Path<String>,
-) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
+) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, QSafeError> {
     Ok(Json(ApiResponse {
         success: true,
         data: Some(vec![]),
@@ -217,7 +333,7 @@ async fn get_messages(
 async fn send_message(
     State(_state): State<Arc<AppState>>,
     Json(_payload): Json<serde_json::Value>,
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
+) -> Result<Json<ApiResponse<String>>, QSafeError> {
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Message sent".to_string()),
@@ -227,7 +343,7 @@ async fn send_message(
 
 async fn get_contacts(
     State(_state): State<Arc<AppState>>,
-) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, StatusCode> {
+) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, QSafeError> {
     Ok(Json(ApiResponse {
         success: true,
         data: Some(vec![]),
@@ -238,7 +354,7 @@ async fn get_contacts(
 async fn add_contact(
     State(_state): State<Arc<AppState>>,
     Json(_payload): Json<serde_json::Value>,
-) -> Result<Json<ApiResponse<String>>, StatusCode> {
+) -> Result<Json<ApiResponse<String>>, QSafeError> {
     Ok(Json(ApiResponse {
         success: true,
         data: Some("Contact added".to_string()),
