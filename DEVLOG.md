@@ -223,6 +223,26 @@ Implement host-side serial communication driver and a local mock responder to en
 - **Files Created**: 2 (`host-server/src/hardware.rs`, `docs/adr/0007-hardware-interface-driver-and-simulation.md`).
 - **Build Status**: 100% clean check, format, clippy, and test pass.
 
+## 2026-05-30: Hybrid Cryptography & Memory Zeroization
+
+### Goal
+Implement standardized memory zeroization routines for sensitive key pairs, shared secrets, and intermediate stack buffers inside `CryptoEngine`.
+
+### Work Completed
+- Added `zeroize` trait imports and implemented `Zeroize` and `Drop` on `KeyPair` and `HybridSharedSecret` inside [host-server/src/crypto.rs](host-server/src/crypto.rs) to clear secret fields on scope exit.
+- Refactored `x25519_shared_secret`, `hybrid_key_agreement`, `generate_x25519_keypair`, `generate_ed25519_keypair`, and `sign_ed25519` to actively clear stack keys, temporary buffers, and concatenated array allocations.
+- Refactored [host-server/src/handshake.rs](host-server/src/handshake.rs) to clone key parameters before structuring payloads, avoiding moves out of types that implement `Drop`.
+- Created [docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md](docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md) documenting decisions.
+- Added `libudev-dev` installation to [.github/workflows/ci.yml](.github/workflows/ci.yml) to fix CI/CD runner compilation errors for the `serialport` crate.
+- Verified workspace builds, formatting, clippy static analysis, and test suites.
+
+### Metrics
+- **Files Modified**: 3 (`host-server/src/crypto.rs`, `host-server/src/handshake.rs`, `.github/workflows/ci.yml`).
+- **Files Created**: 1 (`docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md`).
+- **Build Status**: 100% clean check, format, clippy, and test pass.
+
+
+
 
 
 

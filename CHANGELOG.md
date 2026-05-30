@@ -2,6 +2,17 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-05-30
+
+### Added
+- Created [docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md](docs/adr/0008-hybrid-crypto-standards-and-memory-zeroization.md) logging threat models and active key zeroization decisions.
+
+### Changed
+- Refactored [host-server/src/crypto.rs](host-server/src/crypto.rs) to implement `Zeroize` and `Drop` on `KeyPair` and `HybridSharedSecret`.
+- Refactored `CryptoEngine` key-agreements, sign operations, and key generators inside [host-server/src/crypto.rs](host-server/src/crypto.rs) to wipe stack parameters and intermediate allocations on method completion.
+- Modified [host-server/src/handshake.rs](host-server/src/handshake.rs) to clone key variables, preventing compiler borrow-check move errors out of dropping structures.
+- Added `libudev-dev` installation step inside [.github/workflows/ci.yml](.github/workflows/ci.yml) to fix Linux compilation failures of the `serialport` crate in the CI runner.
+
 ## [0.1.3] - 2026-05-30
 
 ### Added

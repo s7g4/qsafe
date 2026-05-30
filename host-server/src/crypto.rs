@@ -13,11 +13,22 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha3::Sha3_256;
 use x25519_dalek::{PublicKey, StaticSecret};
+use zeroize::Zeroize;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KeyPair {
     pub public_key: Vec<u8>,
     pub secret_key: Vec<u8>,
+}
+impl Zeroize for KeyPair {
+    fn zeroize(&mut self) {
+        self.secret_key.zeroize();
+    }
+}
+impl Drop for KeyPair {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -31,6 +42,18 @@ pub struct HybridSharedSecret {
     pub kyber_ss: Vec<u8>,
     pub x25519_ss: Vec<u8>,
     pub session_key: Vec<u8>,
+}
+impl Zeroize for HybridSharedSecret {
+    fn zeroize(&mut self) {
+        self.kyber_ss.zeroize();
+        self.x25519_ss.zeroize();
+        self.session_key.zeroize();
+    }
+}
+impl Drop for HybridSharedSecret {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 pub struct CryptoEngine {
@@ -80,10 +103,13 @@ impl CryptoEngine {
     pub fn generate_x25519_keypair(&mut self) -> Result<KeyPair, Box<dyn std::error::Error>> {
         let secret = StaticSecret::random_from_rng(self.rng);
         let public = PublicKey::from(&secret);
-        Ok(KeyPair {
+        let mut secret_bytes = secret.to_bytes();
+        let keypair = KeyPair {
             public_key: public.to_bytes().to_vec(),
-            secret_key: secret.to_bytes().to_vec(),
-        })
+            secret_key: secret_bytes.to_vec(),
+        };
+        secret_bytes.zeroize();
+        Ok(keypair)
     }
 
     /// Compute X25519 shared secret
@@ -92,8 +118,9 @@ impl CryptoEngine {
         secret_key: &[u8],
         public_key: &[u8],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let secret_bytes = <[u8; 32]>::try_from(secret_key)?;
+        let mut secret_bytes = <[u8; 32]>::try_from(secret_key)?;
         let secret = StaticSecret::from(secret_bytes);
+        secret_bytes.zeroize(); // Clear the stack copy of private bytes
         let public_bytes = <[u8; 32]>::try_from(public_key)?;
         let public = PublicKey::from(public_bytes);
         let shared = secret.diffie_hellman(&public);
@@ -109,17 +136,18 @@ impl CryptoEngine {
         let mut combined = Vec::with_capacity(kyber_ss.len() + x25519_ss.len());
         combined.extend_from_slice(kyber_ss);
         combined.extend_from_slice(x25519_ss);
-
         let hk = Hkdf::<Sha3_256>::new(None, &combined);
         let mut session_key = [0u8; 32];
         hk.expand(b"qsafe-session-key", &mut session_key)
             .map_err(|e| format!("HKDF expand failure: {:?}", e))?;
-
-        Ok(HybridSharedSecret {
+        combined.zeroize(); // Wipe the combined shared secrets buffer
+        let secret = HybridSharedSecret {
             kyber_ss: kyber_ss.to_vec(),
             x25519_ss: x25519_ss.to_vec(),
             session_key: session_key.to_vec(),
-        })
+        };
+        session_key.zeroize(); // Wipe the stack session key buffer
+        Ok(secret)
     }
 
     /// Generate Ed25519 keypair for identity signatures
@@ -128,10 +156,14 @@ impl CryptoEngine {
         let mut bytes = [0u8; 32];
         csprng.fill_bytes(&mut bytes);
         let signing_key = SigningKey::from_bytes(&bytes);
-        Ok(KeyPair {
+        bytes.zeroize(); // Wipe the csprng buffer
+        let mut secret_bytes = signing_key.to_bytes();
+        let keypair = KeyPair {
             public_key: signing_key.verifying_key().to_bytes().to_vec(),
-            secret_key: signing_key.to_bytes().to_vec(),
-        })
+            secret_key: secret_bytes.to_vec(),
+        };
+        secret_bytes.zeroize(); // Wipe stack buffer copy
+        Ok(keypair)
     }
 
     /// Sign a message using Ed25519
@@ -140,7 +172,9 @@ impl CryptoEngine {
         secret_key: &[u8],
         message: &[u8],
     ) -> Result<QSafeSignature, Box<dyn std::error::Error>> {
-        let signing_key = SigningKey::from_bytes(&secret_key.try_into()?);
+        let mut secret_bytes = <[u8; 32]>::try_from(secret_key)?;
+        let signing_key = SigningKey::from_bytes(&secret_bytes);
+        secret_bytes.zeroize(); // Clear the stack copy of seed bytes
         let signature = signing_key.sign(message);
         Ok(QSafeSignature {
             signature: signature.to_bytes().to_vec(),

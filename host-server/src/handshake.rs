@@ -78,17 +78,16 @@ impl Handshake {
             .sign_ed25519(&identity_kp.secret_key, &init_msg)?;
 
         let init = HandshakeInit {
-            kyber_pk: kyber_kp.public_key,
-            x25519_pub: x25519_kp.public_key,
+            kyber_pk: kyber_kp.public_key.clone(),
+            x25519_pub: x25519_kp.public_key.clone(),
             decoy_commit,
             identity_sig,
         };
-
         // Store private keys for later (in real impl, use secure storage)
         let private_data = bincode::serialize(&(
-            kyber_kp.secret_key,
-            x25519_kp.secret_key,
-            identity_kp.secret_key,
+            kyber_kp.secret_key.clone(),
+            x25519_kp.secret_key.clone(),
+            identity_kp.secret_key.clone(),
             decoy_data,
         ))?;
 
@@ -139,17 +138,16 @@ impl Handshake {
 
         let response = HandshakeResponse {
             kyber_ct,
-            x25519_pub: x25519_kp_bob.public_key,
+            x25519_pub: x25519_kp_bob.public_key.clone(),
             decoy_reveal: decoy_check,
             confirmation_hash,
             identity_sig,
         };
-
         // Store Bob's private
         let private_data = bincode::serialize(&(
-            kyber_kp_bob.secret_key,
-            x25519_kp_bob.secret_key,
-            identity_kp_bob.secret_key,
+            kyber_kp_bob.secret_key.clone(),
+            x25519_kp_bob.secret_key.clone(),
+            identity_kp_bob.secret_key.clone(),
             session_key,
         ))?;
 
@@ -175,10 +173,9 @@ impl Handshake {
         let x25519_ss = self
             .crypto
             .x25519_shared_secret(&x25519_sk, &response.x25519_pub)?;
-
         // Derive session key
         let hybrid_ss = self.crypto.hybrid_key_agreement(&kyber_ss, &x25519_ss)?;
-        let mut session_key = hybrid_ss.session_key;
+        let mut session_key = hybrid_ss.session_key.clone();
 
         // Verify decoy commit
         let (decoy_indices, decoy_bases): (Vec<usize>, Vec<u8>) =
