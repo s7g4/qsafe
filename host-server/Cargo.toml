@@ -45,6 +45,8 @@ rand_core = "0.6"
 getrandom = "0.2"
 zeroize = "1.5"
 bincode = "1"
+serialport = "4.3"
+qsafe-common = { path = "../common" }
 
 [features]
 default = []

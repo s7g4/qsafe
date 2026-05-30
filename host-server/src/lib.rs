@@ -4,6 +4,7 @@ pub mod crypto;
 pub mod database;
 pub mod error;
 pub mod handshake;
+pub mod hardware;
 pub mod messaging;
 pub mod qkd;
 pub mod qrng;

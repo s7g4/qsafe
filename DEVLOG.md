@@ -173,10 +173,10 @@ Resolve workspace-level host-side linking failures when compiling tests for bare
 Transition database schema definition and initialization to compilation-guaranteed SQLx migrations.
 
 ### Work Completed
-- Extracted inline SQL schema creation queries into a versioned migration: [0001_init.sql](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/migrations/0001_init.sql).
-- Modified [Database::new](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs#L48-L56) to execute `sqlx::migrate!().run(&pool).await?` on startup.
-- Removed legacy `create_tables` logic from [database.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/database.rs) and [main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs).
-- Documented design decisions in [docs/adr/0005-database-migrations.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0005-database-migrations.md).
+- Extracted inline SQL schema creation queries into a versioned migration: [0001_init.sql](host-server/migrations/0001_init.sql).
+- Modified [Database::new](host-server/src/database.rs#L48-L56) to execute `sqlx::migrate!().run(&pool).await?` on startup.
+- Removed legacy `create_tables` logic from [database.rs](host-server/src/database.rs) and [main.rs](host-server/src/main.rs).
+- Documented design decisions in [docs/adr/0005-database-migrations.md](docs/adr/0005-database-migrations.md).
 - Verified successful workspace compilation and test suite run.
 
 ### Metrics
@@ -190,12 +190,12 @@ Transition database schema definition and initialization to compilation-guarante
 Upgrade password hashing to Argon2id, introduce a dual-token (Access Token + HttpOnly Cookie Refresh Token) session rotation system, and implement panic-free structured JSON error propagation.
 
 ### Work Completed
-- Added `argon2` and `thiserror` dependencies and removed `bcrypt` in [host-server/Cargo.toml](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/Cargo.toml).
-- Created [host-server/src/error.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/error.rs) defining the custom `QSafeError` enum mapping errors to structured JSON response payloads.
-- Registered the new error module inside [host-server/src/lib.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/lib.rs).
-- Refactored [host-server/src/auth.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/auth.rs) to use Argon2id for hashing/verification and generate separate Access (15m) and Refresh (7d) JWT tokens.
-- Refactored handlers in [host-server/src/main.rs](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/host-server/src/main.rs) to eliminate all unhandled `unwrap()` calls, return rotated refresh token cookies (`Set-Cookie`) on register/login/refresh, and clear cookies on logout.
-- Created [docs/adr/0006-secure-authentication-and-error-handling.md](file:///c:/Users/Shaurya/OneDrive/Desktop/projects/qsafe/docs/adr/0006-secure-authentication-and-error-handling.md) documenting design choices.
+- Added `argon2` and `thiserror` dependencies and removed `bcrypt` in [host-server/Cargo.toml](host-server/Cargo.toml).
+- Created [host-server/src/error.rs](host-server/src/error.rs) defining the custom `QSafeError` enum mapping errors to structured JSON response payloads.
+- Registered the new error module inside [host-server/src/lib.rs](host-server/src/lib.rs).
+- Refactored [host-server/src/auth.rs](host-server/src/auth.rs) to use Argon2id for hashing/verification and generate separate Access (15m) and Refresh (7d) JWT tokens.
+- Refactored handlers in [host-server/src/main.rs](host-server/src/main.rs) to eliminate all unhandled `unwrap()` calls, return rotated refresh token cookies (`Set-Cookie`) on register/login/refresh, and clear cookies on logout.
+- Created [docs/adr/0006-secure-authentication-and-error-handling.md](docs/adr/0006-secure-authentication-and-error-handling.md) documenting design choices.
 - Verified workspace builds, formatting, clippy static analysis, and test suites.
 
 ### Metrics
@@ -203,6 +203,26 @@ Upgrade password hashing to Argon2id, introduce a dual-token (Access Token + Htt
 - **Files Created**: 2 (`host-server/src/error.rs`, `docs/adr/0006-secure-authentication-and-error-handling.md`).
 - **Panics Avoided**: 0 unhandled `unwrap()` and `expect()` remaining in handler endpoints.
 - **Build Status**: 100% clean check, format, clippy, and test pass.
+
+## 2026-05-30: HSM Serial Connection & HIL Simulator
+
+### Goal
+Implement host-side serial communication driver and a local mock responder to enable offline testing without physical microcontrollers.
+
+### Work Completed
+- Turn the shared [common/src/lib.rs](common/src/lib.rs) workspace member into a `#![no_std]` crate. Added packet type representations (`0x01`–`0x06`), CRC-16-CCITT validation checks, and encoding/decoding loops.
+- Added `serialport` and `qsafe-common` dependency declarations inside [host-server/Cargo.toml](host-server/Cargo.toml).
+- Created [host-server/src/hardware.rs](host-server/src/hardware.rs) implementing the `HsmConnection` trait, physical serial driver, and in-memory mock simulator. Registered the module in [host-server/src/lib.rs](host-server/src/lib.rs).
+- Modified [host-server/src/config.rs](host-server/src/config.rs) and [host-server/src/main.rs](host-server/src/main.rs) to wire the `AppState` with mock vs physical connection initializers.
+- Refactored registration endpoint in `main.rs` to fetch Kyber public keys directly from the HSM simulator/connection.
+- Documented decisions in [docs/adr/0007-hardware-interface-driver-and-simulation.md](docs/adr/0007-hardware-interface-driver-and-simulation.md).
+- Verified workspace builds, formatting, clippy static analysis, and test suites.
+
+### Metrics
+- **Files Modified**: 5 (`common/src/lib.rs`, `host-server/Cargo.toml`, `host-server/src/config.rs`, `host-server/src/lib.rs`, `host-server/src/main.rs`).
+- **Files Created**: 2 (`host-server/src/hardware.rs`, `docs/adr/0007-hardware-interface-driver-and-simulation.md`).
+- **Build Status**: 100% clean check, format, clippy, and test pass.
+
 
 
 

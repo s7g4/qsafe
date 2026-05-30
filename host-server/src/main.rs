@@ -11,6 +11,7 @@ use qsafe_backend::{
     crypto::CryptoEngine,
     database::Database,
     error::QSafeError,
+    hardware::HsmConnection,
     qkd::QKDProtocol,
     qrng::QRNG,
     websocket::handle_websocket,
@@ -27,6 +28,7 @@ struct AppState {
     db: Database,
     auth: AuthService,
     crypto: Arc<Mutex<CryptoEngine>>,
+    hsm: Arc<Mutex<Box<dyn HsmConnection>>>,
     qkd: Arc<Mutex<QKDProtocol>>,
     qrng: Arc<Mutex<QRNG>>,
     connected_clients: Arc<
@@ -53,20 +55,31 @@ struct ApiResponse<T> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load and validate environment configuration
     let config = qsafe_backend::config::Config::load()?;
-
     // Initialize services
     let db = Database::new(&config.database_url).await?;
-
     let auth = AuthService::new(config.jwt_secret.clone());
     let crypto = Arc::new(Mutex::new(CryptoEngine::new()));
+
+    // Wire Mock HSM vs Physical HSM Serial connection
+    let hsm: Arc<Mutex<Box<dyn HsmConnection>>> = if config.hsm_mock {
+        println!("Initializing Mock HSM Simulator...");
+        Arc::new(Mutex::new(Box::new(
+            qsafe_backend::hardware::MockHsmConnection::new(),
+        )))
+    } else {
+        let port_name = config.hsm_port.as_deref().unwrap_or("COM3");
+        println!("Connecting to Physical HSM on {}...", port_name);
+        let conn = qsafe_backend::hardware::PhysicalHsmConnection::new(port_name)?;
+        Arc::new(Mutex::new(Box::new(conn)))
+    };
     let qkd = Arc::new(Mutex::new(QKDProtocol::new()));
     let qrng = Arc::new(Mutex::new(QRNG::new()));
     let connected_clients = Arc::new(Mutex::new(HashMap::new()));
-
     let state = Arc::new(AppState {
         db,
         auth,
         crypto,
+        hsm,
         qkd,
         qrng,
         connected_clients,
@@ -126,11 +139,11 @@ async fn register(
         ));
     }
 
-    // Generate quantum key pair
-    let mut crypto = state.crypto.lock().await;
-    let keypair = crypto
-        .generate_pq_keypair()
-        .map_err(|e| QSafeError::Crypto(format!("Failed to generate PQ keypair: {}", e)))?;
+    // Generate quantum public key from HSM
+    let public_key = {
+        let mut hsm = state.hsm.lock().await;
+        hsm.send_request(qsafe_common::PacketType::GetPublicKeyReq, &[])?
+    };
 
     // Hash password using Argon2id
     let password_hash = state.auth.hash_password(&req.password)?;
@@ -138,12 +151,7 @@ async fn register(
     // Create user
     let user = state
         .db
-        .create_user(
-            &req.username,
-            &req.email,
-            &password_hash,
-            &keypair.public_key,
-        )
+        .create_user(&req.username, &req.email, &password_hash, &public_key)
         .await?;
 
     // Create dual tokens
