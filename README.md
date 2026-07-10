@@ -1,5 +1,9 @@
 # Q-Safe: Quantum-Safe Messaging Gateway
 
+[![CI](https://github.com/s7g4/qsafe/actions/workflows/ci.yml/badge.svg)](https://github.com/s7g4/qsafe/actions/workflows/ci.yml)
+[![Docs](https://github.com/s7g4/qsafe/actions/workflows/docs.yml/badge.svg)](https://s7g4.github.io/qsafe/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **[Docs site: s7g4.github.io/qsafe](https://s7g4.github.io/qsafe/)**
 
 <!-- ANCHOR: intro -->
