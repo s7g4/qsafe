@@ -1,26 +1,59 @@
 # Q-Safe: Quantum-Safe Messaging Gateway
 
-Q-Safe is an industry-grade, secure messaging gateway built in Rust that integrates post-quantum hybrid cryptography with physical Hardware Security Modules (HSMs).
+<!-- ANCHOR: intro -->
+Q-Safe is a Rust messaging gateway exploring post-quantum hybrid cryptography
+(ML-KEM / FIPS 203 + X25519) with a pluggable Hardware Security Module (HSM)
+abstraction for offloading key decapsulation.
 
-Built to defend against Harvest-Now-Decrypt-Later (HNDL) attacks, Q-Safe leverages a zero-trust architecture, strict memory sanitization, and bare-metal RP2040 microcontrollers acting as dedicated cryptographic offloading engines.
+**Status: prototype.** The host-side crypto core and auth flow are covered
+by real integration tests (see below). The RP2040 hardware path is a
+designed-but-not-yet-implemented target - there is no firmware running on a
+device today. See [docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md)
+for the exact, up-to-date breakdown of what's proven vs. unverified vs.
+unimplemented.
+<!-- ANCHOR_END: intro -->
+
+## Demo
+
+<!-- ANCHOR: demo -->
+![Q-Safe demo: register two users, reject a wrong password, log in, exchange a message over the authenticated WebSocket, and run the full test suite](docs/assets/demo.gif)
+
+Every line of output above is a real capture (`docker`, `curl`, `cargo run`,
+`cargo test`) against a locally running instance in Mock HSM mode - nothing
+staged. Typing is sped up; command output is not edited except truncating
+JWTs for readability.
+<!-- ANCHOR_END: demo -->
 
 ## Architecture
 
-The project is organized into a Cargo Workspace spanning host and embedded targets:
+The project is a Cargo Workspace spanning host and embedded targets:
 - `host-server/`: The messaging backend built on Axum, managing WebSocket routing, PostgreSQL (SQLx) storage, authentication, and HTTP endpoints.
-- `firmware/`: Bare-metal Embedded Rust firmware (targeting the RP2040 microcontroller) executing secure key decapsulations and QRNG generation.
+- `firmware/`: Reserved for RP2040 firmware. Currently an empty `#![no_std]` stub with no dependencies - see [docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md).
 - `common/`: Shared Type-Length-Value (TLV) packet definitions compiled for both host and device targets, enabling zero-copy `#[no_std]` serial communication.
 
-## Production-Ready Features
+<!-- ANCHOR: whats-tested -->
+## What's actually tested
+
+- **Post-quantum crypto core**: ML-KEM-768 (Kyber) key generation, encapsulation, and decapsulation, exercised through the `HsmConnection` abstraction end-to-end, including a tampered-ciphertext case (`host-server/tests/hsm_mock_flow.rs`); and directly at the `CryptoEngine` level - Kyber round-trip, X25519 shared-secret agreement, the HKDF-SHA3-256 hybrid key derivation matching on both sides, and Ed25519 sign/verify including tampered-message and wrong-key rejection (`host-server/src/crypto.rs` unit tests).
+- **Auth flow, over real HTTP against a real Postgres database**: Argon2id password hashing (correct/incorrect password), dual-JWT issuance, refresh-token rotation, and query-based WebSocket token authorization (valid/missing/invalid token). See `host-server/tests/auth_flow.rs`. JWT expiry/signature rejection is covered by unit tests in `host-server/src/auth.rs`.
+- **TLV packet framing + CRC-16-CCITT** in `common/`, shared by both the host driver and (eventually) the firmware.
+
+What is **not** tested or implemented: the physical RP2040 HSM path (no firmware exists yet), refresh-token revocation (rotation issues a new token but never invalidates the old one - there's no server-side token store), and the QKD/decoy-check handshake protocol in `handshake.rs`/`qkd.rs` (implemented but not wired to any HTTP endpoint).
+<!-- ANCHOR_END: whats-tested -->
+
+<!-- ANCHOR: features -->
+## Features (with the caveats above)
 
 - **Post-Quantum Cryptography**: Module-Lattice KEM (ML-KEM / FIPS 203) integrated with X25519 for hybrid key exchange.
-- **Hardware Security Module**: Offloads quantum-safe decapsulation to a physical RP2040 microcontroller via highly-reliable, CRC-checked TLV framing. Includes a software Mock HSM for local development.
-- **Strict Authentication**: Argon2id password hashing, Dual-JWT architecture (short-lived access + secure HttpOnly refresh), and query-based WebSocket token authorization.
-- **Hardened Security**: Protected against credential stuffing (Rate Limiting via `tower_governor`), memory exhaustion (Bounded Channels), leaky errors (Error Sanitization), and insecure origins (Configurable CORS).
-- **Graceful Shutdown**: Zero-drop active request handling during SIGTERM/CTRL+C restarts.
-- **Observability**: Exhaustive Prometheus metrics (`/metrics`) tracking latencies, connections, and hardware throughput, paired with `tracing` spans and `x-request-id` headers.
-- **Deployment Strategy**: Multi-stage Dockerfile and `docker-compose.yml` for isolated deployment alongside PostgreSQL 16.
+- **Hardware Security Module abstraction**: A `HsmConnection` trait with a fully-tested in-memory Mock HSM for local development, and a `PhysicalHsmConnection` serial driver that is implemented and compiles but has never been run against real hardware (no firmware exists to talk to it yet).
+- **Authentication**: Argon2id password hashing, Dual-JWT architecture (short-lived access + secure HttpOnly refresh), and query-based WebSocket token authorization.
+- **Hardened Security**: Rate limiting via `tower_governor` (peer-IP keyed - requires the server to be served with connect-info, which `main.rs` now does), memory exhaustion protection (bounded channels), leaky-error sanitization, and configurable CORS.
+- **Graceful Shutdown**: Active request handling during SIGTERM/CTRL+C restarts.
+- **Observability**: Prometheus metrics (`/metrics`) tracking latencies, connections, and hardware throughput, paired with `tracing` spans and `x-request-id` headers.
+- **Deployment**: Multi-stage Dockerfile and `docker-compose.yml` for isolated deployment alongside PostgreSQL 16.
+<!-- ANCHOR_END: features -->
 
+<!-- ANCHOR: getting-started -->
 ## Getting Started
 
 ### Local Development (Mock HSM)
@@ -35,19 +68,35 @@ The project is organized into a Cargo Workspace spanning host and embedded targe
    ```bash
    cargo run -p qsafe-backend
    ```
-
-### Production Deployment
-
-1. Configure `.env` with strong secrets and set `HSM_MOCK=false` with the correct `HSM_PORT` (e.g. `/dev/ttyACM0`).
-2. Build and run using Docker Compose:
+4. **Run the tests** (requires a reachable Postgres, e.g. the one from step 1, or override `DATABASE_URL`):
    ```bash
-   docker-compose up -d --build
+   cargo test -p qsafe-backend -p qsafe-common
    ```
+
+### Deployment
+
+`HSM_MOCK=false` / physical HSM mode is **not yet functional** - see
+[docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md). The
+Docker Compose deployment below runs the Mock HSM path.
+
+```bash
+docker-compose up -d --build
+```
+<!-- ANCHOR_END: getting-started -->
 
 ## Documentation
 
+All of the documentation below is also published as a single browsable
+mdBook - see [docs/book/](docs/book/) to build it locally
+(`mdbook build docs/book`, or `mdbook serve docs/book` to preview), or once
+[GitHub Pages is enabled for this repo](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+(Settings -> Pages -> Source: "GitHub Actions"), it auto-deploys on every
+push to `master` via `.github/workflows/docs.yml`.
+
 - **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)**: Complete REST and WebSocket endpoint specifications for integrating with the gateway.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: High-level architectural specifications, data flows, hardware integration boundaries, and observability metrics.
+- **[docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md)**: What's proven vs. unverified vs. unimplemented in the HSM path.
+- **[docs/HYBRID_KEY_EXCHANGE.md](docs/HYBRID_KEY_EXCHANGE.md)**: Technical writeup of the ML-KEM-768 + X25519 hybrid key exchange design.
 - **[CHANGELOG.md](CHANGELOG.md)**: Semantic version tracking and updates record.
 - **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
 - **[docs/adr/](docs/adr/)**: Architectural Decision Records (ADRs) tracking design updates and transitions.
