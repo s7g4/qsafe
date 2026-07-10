@@ -2,6 +2,31 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - 2026-07-10
+
+### Added
+- **Real integration tests for the auth flow**: `host-server/tests/auth_flow.rs` boots the actual axum app against a real Postgres database and exercises register/login/refresh/logout and query-based WebSocket token authorization over real HTTP and WebSocket connections, not just unit-level calls into `AuthService`.
+- **Real integration tests for the Mock HSM path**: `host-server/tests/hsm_mock_flow.rs` proves the client-encapsulate / HSM-decapsulate round-trip matches, detects tampered ciphertext, and confirms the register endpoint pulls a real Kyber-768 key through the live `HsmConnection` abstraction.
+- Unit tests for JWT expiry rejection and signature-mismatch rejection in `host-server/src/auth.rs`.
+- [docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md): an honest breakdown of what's proven vs. architecturally-sound-but-unverified vs. not-yet-implemented in the HSM path (the RP2040 firmware is currently an empty stub with no on-device logic).
+- [docs/HYBRID_KEY_EXCHANGE.md](docs/HYBRID_KEY_EXCHANGE.md): technical writeup of the ML-KEM-768 + X25519 hybrid key exchange design.
+- A GitHub Pages-published mdBook under `docs/book/` covering the full doc set (architecture, API reference, HSM verification status, hybrid key exchange, ADRs, roadmap, changelog, devlog), auto-deployed by `.github/workflows/docs.yml`.
+- A real-output demo GIF (`docs/assets/demo.gif`) and `host-server/examples/demo_client.rs`, showing register/login/reject-wrong-password/WebSocket-messaging/test-suite from actual captured terminal output.
+- Unit tests for `CryptoEngine` in `host-server/src/crypto.rs`: Kyber encapsulate/decapsulate round-trip, X25519 shared-secret agreement matching on both sides, the HKDF-SHA3-256 hybrid key derivation matching and differing correctly, and Ed25519 sign/verify including tampered-message and wrong-key rejection.
+
+### Fixed
+- **Rate limiter 500s on every auth request**: `tower_governor`'s peer-IP key extractor requires `ConnectInfo<SocketAddr>`, which the server never provided (`main.rs` called `axum::serve`/`axum_server` with a bare `Router`/`into_make_service()`). Every request to `/api/auth/*` returned `500 Unable To Extract Key!`. Found via the new integration tests; fixed by serving via `into_make_service_with_connect_info::<SocketAddr>()` on both the TLS and plain-HTTP paths.
+
+### Changed
+- Extracted `AppState`, the `AuthedUser` extractor, and all HTTP handlers out of `main.rs` into `host-server/src/app.rs` (a library module) so integration tests can build the real router instead of re-testing logic in isolation. `main.rs` is now a thin entrypoint.
+- Rewrote `README.md` to only claim what the test suite backs up, and to accurately describe the firmware/HSM path as designed-but-unimplemented rather than "production-ready."
+
+### Removed
+- `host-server/src/db_tests.rs` and `host-server/src/scratch_governor.rs`: orphaned files never referenced by any `mod` declaration, so they never compiled or ran. Their existence overstated test coverage.
+- `host-server/src/messaging.rs` (`MessagingService`) and `host-server/src/ui.rs` (`UI`): dead code, never instantiated anywhere. `messaging.rs` also shadowed `database::Message`/`ChatSession` with differently-shaped types of the same name. Dropped the now-unused `wasm-bindgen`, `web-sys`, and `plotters` optional dependencies and the `web`/`visualization` features that only existed for `ui.rs`.
+- Three inert `AppState` fields (`crypto`, `qkd`, `qrng`) that were constructed at startup but never read by any handler.
+- `CryptoEngine`'s unused "legacy" method aliases, and its `encrypt_aead`/`decrypt_aead` wrapper: also unused (the real message flow relays opaque client-encrypted blobs), and mislabeled - the doc comment said "ChaCha20-Poly1305" with an implied 12-byte nonce, but `orion::aead` actually uses XChaCha20Poly1305 with a 24-byte nonce; the code only round-tripped because both functions agreed on the same arbitrary split point, not because the framing was correct.
+
 ## [1.0.0] - 2026-05-30
 
 ### Added

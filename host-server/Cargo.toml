@@ -33,17 +33,11 @@ metrics = "0.22"
 metrics-exporter-prometheus = "0.15"
 base64 = "0.22"
 tower_governor = "0.4"
-# For web interface (optional)
-wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["console"] }
-# For visualization (optional)
-plotters = { version = "0.3", optional = true }
 # PQC and hybrid crypto
 pqcrypto-kyber = "0.8"
 pqcrypto-traits = "0.3"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 ed25519-dalek = "2.0"
-orion = "0.16"
 blake3 = "1"
 hkdf = "0.12"
 sha3 = "0.10"
@@ -54,11 +48,6 @@ bincode = "1"
 serialport = "4.3"
 qsafe-common = { path = "../common" }
 axum-server = { version = "0.8.0", features = ["tls-rustls"] }
-
-[features]
-default = []
-web = ["wasm-bindgen", "web-sys"]
-visualization = ["plotters"]
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }

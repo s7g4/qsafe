@@ -3,7 +3,6 @@
 use blake3;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use hkdf::Hkdf;
-use orion::aead::{open, seal, SecretKey as AeadSecretKey};
 use pqcrypto_kyber::kyber768::{decapsulate, encapsulate, keypair};
 use pqcrypto_traits::kem::{
     Ciphertext as KyberCiphertext, PublicKey as KyberPublicKey, SecretKey as KyberSecretKey,
@@ -198,38 +197,6 @@ impl CryptoEngine {
         Ok(verifying_key.verify(&signature.message, &sig).is_ok())
     }
 
-    /// Encrypt a message using ChaCha20-Poly1305 AEAD
-    pub fn encrypt_aead(
-        &mut self,
-        key: &[u8],
-        plaintext: &[u8],
-        _aad: Option<&[u8]>,
-    ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
-        let secret_key = AeadSecretKey::from_slice(key)?;
-        let sealed = seal(&secret_key, plaintext)?;
-        if sealed.len() < 28 {
-            return Err("Invalid sealed data length".into());
-        }
-        let nonce = sealed[0..12].to_vec();
-        let ciphertext = sealed[12..].to_vec();
-        Ok((ciphertext, nonce))
-    }
-
-    /// Decrypt a message using ChaCha20-Poly1305 AEAD
-    pub fn decrypt_aead(
-        &self,
-        key: &[u8],
-        ciphertext: &[u8],
-        nonce: &[u8],
-        _aad: Option<&[u8]>,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let secret_key = AeadSecretKey::from_slice(key)?;
-        let mut full = nonce.to_vec();
-        full.extend_from_slice(ciphertext);
-        let plaintext = open(&secret_key, &full)?;
-        Ok(plaintext)
-    }
-
     /// Compute authenticated key confirmation MAC
     pub fn key_confirmation_mac(&self, key: &[u8], message: &[u8]) -> Vec<u8> {
         let key_hash = blake3::hash(key);
@@ -242,54 +209,134 @@ impl CryptoEngine {
     pub fn hash(&self, data: &[u8]) -> Vec<u8> {
         blake3::hash(data).as_bytes().to_vec()
     }
+}
 
-    // Legacy methods for compatibility (deprecated)
-    pub fn generate_pq_keypair(&mut self) -> Result<KeyPair, Box<dyn std::error::Error>> {
-        self.generate_kyber_keypair()
-    }
-    pub fn encapsulate(
-        &mut self,
-        public_key: &[u8],
-    ) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
-        self.kyber_encapsulate(public_key)
-    }
-    pub fn decapsulate(
-        &mut self,
-        secret_key: &[u8],
-        ciphertext: &[u8],
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        self.kyber_decapsulate(secret_key, ciphertext)
-    }
-    pub fn sign(
-        &mut self,
-        secret_key: &[u8],
-        message: &[u8],
-    ) -> Result<QSafeSignature, Box<dyn std::error::Error>> {
-        self.sign_ed25519(secret_key, message)
-    }
-    pub fn verify(
-        &mut self,
-        public_key: &[u8],
-        signature: &QSafeSignature,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        self.verify_ed25519(public_key, signature)
-    }
-    #[allow(clippy::type_complexity)]
-    pub fn encrypt(
-        &mut self,
-        key: &[u8],
-        plaintext: &[u8],
-    ) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
-        let (ciphertext, nonce) = self.encrypt_aead(key, plaintext, None)?;
-        Ok((ciphertext, nonce, vec![]))
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kyber_encapsulate_decapsulate_round_trip() {
+        let mut engine = CryptoEngine::new();
+        let kp = engine.generate_kyber_keypair().unwrap();
+
+        let (encapsulated_ss, ciphertext) = engine.kyber_encapsulate(&kp.public_key).unwrap();
+        let decapsulated_ss = engine
+            .kyber_decapsulate(&kp.secret_key, &ciphertext)
+            .unwrap();
+
+        assert_eq!(encapsulated_ss, decapsulated_ss);
     }
 
-    pub fn decrypt(
-        &mut self,
-        key: &[u8],
-        ciphertext: &[u8],
-        nonce: &[u8],
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        self.decrypt_aead(key, ciphertext, nonce, None)
+    #[test]
+    fn x25519_shared_secret_matches_on_both_sides() {
+        let mut engine = CryptoEngine::new();
+        let alice = engine.generate_x25519_keypair().unwrap();
+        let bob = engine.generate_x25519_keypair().unwrap();
+
+        let alice_view = engine
+            .x25519_shared_secret(&alice.secret_key, &bob.public_key)
+            .unwrap();
+        let bob_view = engine
+            .x25519_shared_secret(&bob.secret_key, &alice.public_key)
+            .unwrap();
+
+        assert_eq!(alice_view, bob_view);
+    }
+
+    #[test]
+    fn hybrid_key_agreement_derives_matching_session_keys() {
+        let mut engine = CryptoEngine::new();
+
+        // Simulate both sides landing on the same two shared secrets (as a
+        // real handshake would after the Kyber and X25519 exchanges).
+        let alice_kyber = engine.generate_kyber_keypair().unwrap();
+        let (kyber_ss, kyber_ct) = engine.kyber_encapsulate(&alice_kyber.public_key).unwrap();
+        let kyber_ss_alice = engine
+            .kyber_decapsulate(&alice_kyber.secret_key, &kyber_ct)
+            .unwrap();
+
+        let alice_x25519 = engine.generate_x25519_keypair().unwrap();
+        let bob_x25519 = engine.generate_x25519_keypair().unwrap();
+        let x25519_ss_alice = engine
+            .x25519_shared_secret(&alice_x25519.secret_key, &bob_x25519.public_key)
+            .unwrap();
+        let x25519_ss_bob = engine
+            .x25519_shared_secret(&bob_x25519.secret_key, &alice_x25519.public_key)
+            .unwrap();
+
+        let alice_session = engine
+            .hybrid_key_agreement(&kyber_ss_alice, &x25519_ss_alice)
+            .unwrap();
+        let bob_session = engine
+            .hybrid_key_agreement(&kyber_ss, &x25519_ss_bob)
+            .unwrap();
+
+        assert_eq!(alice_session.session_key, bob_session.session_key);
+        assert_eq!(alice_session.session_key.len(), 32);
+    }
+
+    #[test]
+    fn hybrid_key_agreement_differs_for_different_inputs() {
+        let mut engine = CryptoEngine::new();
+        let kp1 = engine.generate_kyber_keypair().unwrap();
+        let kp2 = engine.generate_kyber_keypair().unwrap();
+        let (ss1, _) = engine.kyber_encapsulate(&kp1.public_key).unwrap();
+        let (ss2, _) = engine.kyber_encapsulate(&kp2.public_key).unwrap();
+
+        let secret1 = engine.hybrid_key_agreement(&ss1, &[0u8; 32]).unwrap();
+        let secret2 = engine.hybrid_key_agreement(&ss2, &[0u8; 32]).unwrap();
+
+        assert_ne!(secret1.session_key, secret2.session_key);
+    }
+
+    #[test]
+    fn ed25519_sign_and_verify_round_trip() {
+        let mut engine = CryptoEngine::new();
+        let kp = engine.generate_ed25519_keypair().unwrap();
+        let message = b"quantum-safe handshake init";
+
+        let signature = engine.sign_ed25519(&kp.secret_key, message).unwrap();
+        assert!(engine.verify_ed25519(&kp.public_key, &signature).unwrap());
+    }
+
+    #[test]
+    fn ed25519_verify_rejects_tampered_message() {
+        let mut engine = CryptoEngine::new();
+        let kp = engine.generate_ed25519_keypair().unwrap();
+        let mut signature = engine
+            .sign_ed25519(&kp.secret_key, b"original message")
+            .unwrap();
+        signature.message = b"tampered message".to_vec();
+
+        assert!(!engine.verify_ed25519(&kp.public_key, &signature).unwrap());
+    }
+
+    #[test]
+    fn ed25519_verify_rejects_wrong_key() {
+        let mut engine = CryptoEngine::new();
+        let signer = engine.generate_ed25519_keypair().unwrap();
+        let impostor = engine.generate_ed25519_keypair().unwrap();
+        let signature = engine
+            .sign_ed25519(&signer.secret_key, b"who signed this?")
+            .unwrap();
+
+        assert!(!engine
+            .verify_ed25519(&impostor.public_key, &signature)
+            .unwrap());
+    }
+
+    #[test]
+    fn key_confirmation_mac_matches_for_same_key_and_differs_for_different_keys() {
+        let engine = CryptoEngine::new();
+        let key_a = [1u8; 32];
+        let key_b = [2u8; 32];
+
+        let mac_a1 = engine.key_confirmation_mac(&key_a, b"bob-confirmation");
+        let mac_a2 = engine.key_confirmation_mac(&key_a, b"bob-confirmation");
+        let mac_b = engine.key_confirmation_mac(&key_b, b"bob-confirmation");
+
+        assert_eq!(mac_a1, mac_a2);
+        assert_ne!(mac_a1, mac_b);
     }
 }
