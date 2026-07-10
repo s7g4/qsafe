@@ -1,5 +1,7 @@
 # Q-Safe: Quantum-Safe Messaging Gateway
 
+**[Docs site: s7g4.github.io/qsafe](https://s7g4.github.io/qsafe/)**
+
 <!-- ANCHOR: intro -->
 Q-Safe is a Rust messaging gateway exploring post-quantum hybrid cryptography
 (ML-KEM / FIPS 203 + X25519) with a pluggable Hardware Security Module (HSM)
