@@ -182,4 +182,39 @@ mod tests {
 
         assert_eq!(user_id, extracted_id);
     }
+
+    #[test]
+    fn test_expired_token_is_rejected() {
+        let auth = AuthService::new("test_secret".to_string());
+        let user_id = Uuid::new_v4();
+
+        let expired_claims = Claims {
+            sub: user_id.to_string(),
+            username: "user".to_string(),
+            // jsonwebtoken's `Validation::default()` allows a 60s leeway for
+            // clock skew, so the expiry needs to be further in the past than
+            // that to reliably exercise rejection.
+            exp: (Utc::now() - Duration::minutes(5)).timestamp() as usize,
+            token_type: "access".to_string(),
+        };
+        let expired_token = encode(
+            &Header::default(),
+            &expired_claims,
+            &EncodingKey::from_secret(auth.jwt_secret.as_ref()),
+        )
+        .unwrap();
+
+        let result = auth.verify_token(&expired_token);
+        assert!(result.is_err(), "an expired token must fail verification");
+    }
+
+    #[test]
+    fn test_wrong_secret_is_rejected() {
+        let issuer = AuthService::new("issuer_secret".to_string());
+        let verifier = AuthService::new("different_secret".to_string());
+        let user_id = Uuid::new_v4();
+
+        let token = issuer.create_access_token(&user_id, "user").unwrap();
+        assert!(verifier.verify_token(&token).is_err());
+    }
 }

@@ -59,3 +59,6 @@ axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 default = []
 web = ["wasm-bindgen", "web-sys"]
 visualization = ["plotters"]
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
