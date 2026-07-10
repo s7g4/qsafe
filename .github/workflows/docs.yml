@@ -1,0 +1,62 @@
+name: Deploy mdBook to GitHub Pages
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - "docs/book/**"
+      - "README.md"
+      - "ARCHITECTURE.md"
+      - "API_DOCUMENTATION.md"
+      - "METRICS.md"
+      - "ROADMAP.md"
+      - "CHANGELOG.md"
+      - "DEVLOG.md"
+      - "RESEARCH.md"
+      - "docs/adr/**"
+      - "docs/HSM_VERIFICATION_STATUS.md"
+      - "docs/HYBRID_KEY_EXCHANGE.md"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build mdBook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: "latest"
+
+      - name: Build Book
+        run: mdbook build docs/book
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book/book
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
