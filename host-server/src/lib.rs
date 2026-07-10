@@ -1,3 +1,4 @@
+pub mod app;
 pub mod auth;
 pub mod config;
 pub mod crypto;
@@ -5,8 +6,6 @@ pub mod database;
 pub mod error;
 pub mod handshake;
 pub mod hardware;
-pub mod messaging;
 pub mod qkd;
 pub mod qrng;
-pub mod ui;
 pub mod websocket;
