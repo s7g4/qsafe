@@ -1,0 +1,15 @@
+[book]
+title = "Q-Safe: Quantum-Safe Messaging Gateway"
+description = "Post-quantum hybrid cryptography, HSM offload design, and the honest state of the auth flow and hardware verification."
+authors = ["s7g4"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/s7g4/qsafe"
+edit-url-template = "https://github.com/s7g4/qsafe/edit/master/{path}"
+default-theme = "navy"
+preferred-dark-theme = "navy"
