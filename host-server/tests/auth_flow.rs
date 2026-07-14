@@ -68,6 +68,52 @@ async fn register_then_access_protected_route_with_issued_token() {
 }
 
 #[tokio::test]
+async fn concurrent_duplicate_registration_never_surfaces_a_500() {
+    let app = spawn_app().await;
+    let username = unique_username("grace");
+    let make_request = || {
+        let client = reqwest::Client::new();
+        let base_url = app.base_url.clone();
+        let username = username.clone();
+        async move {
+            client
+                .post(format!("{base_url}/api/auth/register"))
+                .json(&json!({
+                    "username": username,
+                    "email": format!("{username}@example.com"),
+                    "password": "racing-the-unique-constraint",
+                }))
+                .send()
+                .await
+                .unwrap()
+        }
+    };
+
+    // Two requests for the same username, fired concurrently: both can pass
+    // the existence-check fast path before either finishes its insert. The
+    // database's UNIQUE constraint must be the deciding authority - exactly
+    // one request succeeds, the other gets a proper 409, and neither ever
+    // surfaces the unique-violation as a raw 500.
+    let (res_a, res_b) = tokio::join!(make_request(), make_request());
+    let statuses: Vec<u16> = vec![res_a.status().as_u16(), res_b.status().as_u16()];
+
+    assert!(
+        !statuses.contains(&500),
+        "a racing duplicate registration must never surface as a 500, got {statuses:?}"
+    );
+    assert_eq!(
+        statuses.iter().filter(|&&s| s == 200).count(),
+        1,
+        "exactly one of the two racing registrations should succeed, got {statuses:?}"
+    );
+    assert_eq!(
+        statuses.iter().filter(|&&s| s == 409).count(),
+        1,
+        "the losing registration should get 409 Conflict, got {statuses:?}"
+    );
+}
+
+#[tokio::test]
 async fn login_verifies_argon2id_password_round_trip() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();

@@ -246,7 +246,9 @@ async fn register(
         ));
     }
 
-    // Check if user exists
+    // Fast-path check: avoids the HSM round trip and Argon2id hash below for
+    // the common case, but is not itself race-free (see the DB-level check
+    // after create_user, which is the authoritative one).
     if state
         .db
         .get_user_by_username(&req.username)
@@ -267,11 +269,24 @@ async fn register(
     // Hash password using Argon2id
     let password_hash = state.auth.hash_password(&req.password)?;
 
-    // Create user
-    let user = state
+    // Create user. Two concurrent registrations for the same username can
+    // both pass the existence check above and race on this insert; the
+    // database's UNIQUE constraint is the actual source of truth, so a
+    // unique-violation here is mapped to the same 409 the fast-path check
+    // above would have produced, instead of leaking as a raw 500.
+    let user = match state
         .db
         .create_user(&req.username, &req.email, &password_hash, &public_key)
-        .await?;
+        .await
+    {
+        Ok(user) => user,
+        Err(sqlx::Error::Database(db_err)) if db_err.code().as_deref() == Some("23505") => {
+            return Err(QSafeError::UserConflict(
+                "Username or email already taken".to_string(),
+            ));
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     // Create dual tokens
     let access_token = state.auth.create_access_token(&user.id, &user.username)?;
