@@ -1,0 +1,13 @@
+-- messages.session_id carried a FOREIGN KEY against chat_sessions(id), but
+-- nothing anywhere in the application ever inserts a row into
+-- chat_sessions - it's dead schema from an earlier design (a persisted
+-- session/shared-key record) that was never wired up. The practical effect
+-- was that POST /api/messages/send could never succeed for any real
+-- client: any session_id, valid-looking or not, fails the FK check with no
+-- matching chat_sessions row to reference, surfacing as a raw 500.
+--
+-- session_id is actually used (and documented) as an opaque
+-- client-supplied correlation id grouping messages into a conversation,
+-- not a server-verified session record - so it doesn't need a foreign key
+-- at all. Drop the constraint; keep the column as a plain UUID.
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_session_id_fkey;
