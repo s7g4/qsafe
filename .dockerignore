@@ -1,0 +1,17 @@
+# Never let secrets or local dev state end up in a build context or image layer.
+.env
+.env.*
+!.env.example
+*.log
+
+# Build artifacts - re-built inside the image anyway, and including a
+# host-built target/ defeats the point of the multi-stage build.
+target/
+docs/book/book/
+
+# Everything else that doesn't affect the qsafe-backend build.
+.git/
+.github/
+.claude/
+docs/
+*.md
