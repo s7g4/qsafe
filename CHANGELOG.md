@@ -2,6 +2,33 @@
 
 All notable changes to the Q-Safe secure messaging gateway will be documented in this file. This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - 2026-07-14
+
+### Fixed
+- **Critical: `POST /api/messages/send` could never succeed.** `messages.session_id` carried a `FOREIGN KEY` against `chat_sessions(id)`, but nothing anywhere in the application ever inserts a `chat_sessions` row. Any real client call failed with a raw 500 (FK violation). Dropped the constraint (`migrations/0004_drop_dead_session_fk.sql`) - `session_id` is a client-supplied correlation id, not a server-verified session record.
+- **Docker build was completely broken.** `Dockerfile` pinned `rust:1.80-slim`, but the current dependency tree requires the `edition2024` feature (stabilized in 1.85+) and, transitively, rustc 1.88+. Never caught because CI builds with `dtolnay/rust-toolchain@stable` (floating) rather than actually running `docker build`. Bumped to `rust:1.96-slim-bookworm` - pinned explicitly to `-bookworm` so the builder and the `debian:bookworm-slim` runtime share a glibc version (a bare `-slim` tag silently builds against Debian trixie's newer glibc, which then fails to *run* on bookworm with `GLIBC_2.38 not found` - only caught by actually running the container, not by `docker build` succeeding).
+- **Registration race condition**: concurrent duplicate registrations for the same username could both pass the existence-check fast path and race on the insert; the loser got a raw 500 instead of the intended 409. The database's `UNIQUE` constraint is now the authoritative check, with its violation mapped to `UserConflict`.
+- **`JWT_SECRET` had no strength floor.** A one-character secret was valid config, silently breaking the entire auth model's security guarantee. Now rejected below 32 bytes at startup.
+- **WebSocket message path had no size limit** (defaulted to 64 MiB via `tungstenite`), 64x more permissive than the equivalent HTTP endpoint's 1 MiB cap. Both paths now share one `MAX_MESSAGE_BYTES` constant.
+- **No password maximum length** - Argon2id's cost scales with input size, so an unbounded password was a CPU-exhaustion vector. Capped at 128 characters.
+- **CI cache could silently embed a stale migration set.** The cache key only hashed `Cargo.lock`; a PR that only adds/changes a `.sql` migration file could restore a cached `target/` build that never re-embeds it (reproduced locally: migration 0004 silently didn't apply until a source file was touched to force recompilation). Cache key now also hashes the migrations directory.
+- Missing index on `messages(recipient_id, sender_id, timestamp)` - `get_messages_between_users`'s `OR`-based conversation query was a full sequential scan with no supporting index; verified via `EXPLAIN` at realistic row counts that a single composite index (not two - confirmed the second is redundant for pure-equality lookups) turns it into a bitmap index scan.
+- ARCHITECTURE.md described metrics (`qsafe_hsm_request_duration_seconds`, `qsafe_api_http_request_duration_seconds`) that don't exist in the code, and a dynamic USB-failure software-fallback that was never implemented. Corrected to match what's actually emitted/implemented.
+
+### Added
+- `.dockerignore` - `Dockerfile`'s `COPY . .` had none, risking `.env` secrets baked into local build layers.
+- Container `HEALTHCHECK` (Dockerfile + docker-compose), reusing the existing `/api/health` endpoint.
+- `docker-compose.yml` now sources `POSTGRES_PASSWORD`/`JWT_SECRET` from a `.env` file via required (`:?`) variable substitution instead of hardcoded placeholder literals, failing loudly if unset.
+- Integration tests for `send_message`/`get_messages`/`add_contact`/`get_contacts` and WebSocket offline-message buffering (all previously zero coverage - and it's exactly this gap that let the `session_id` FK bug above ship unnoticed).
+- `CONTRIBUTING.md` and `SECURITY.md`.
+- A "Known Limitations" section in `ARCHITECTURE.md`: single-instance-only `WebSocketRegistry` (no cross-replica fan-out), the rate limiter's proxy-unaware peer-IP keying, unused `chat_sessions` schema, no message idempotency, no API versioning.
+
+### Removed
+- `host-server/src/messaging.rs` (`MessagingService`, never instantiated anywhere) and `host-server/src/ui.rs` (`UI`, likewise) - along with the `wasm-bindgen`/`web-sys`/`plotters` optional dependencies and `web`/`visualization` features that existed only for the latter.
+- Three inert `AppState` fields (`crypto`, `qkd`, `qrng`) constructed at startup but never read by any handler.
+- `CryptoEngine`'s unused "legacy" method aliases and its `encrypt_aead`/`decrypt_aead` wrapper (also unused - the real message flow relays opaque client-encrypted blobs - and mislabeled: doc comment said "ChaCha20-Poly1305" with a 12-byte nonce, but `orion::aead` actually uses XChaCha20Poly1305 with a 24-byte nonce).
+- Obsolete `version: '3.8'` key from `docker-compose.yml`.
+
 ## [Unreleased] - 2026-07-10
 
 ### Added
