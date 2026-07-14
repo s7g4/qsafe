@@ -25,8 +25,9 @@ RUN cargo build --release -p qsafe-backend
 # Runtime stage
 FROM debian:bookworm-slim
 
-# Install runtime dependencies (OpenSSL, etc.)
-RUN apt-get update && apt-get install -y ca-certificates libssl3 libudev1 && rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies (OpenSSL, etc.). curl is here solely for the
+# HEALTHCHECK below, which hits the existing /api/health endpoint.
+RUN apt-get update && apt-get install -y ca-certificates libssl3 libudev1 curl && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
 RUN useradd -ms /bin/bash qsafe
@@ -43,6 +44,10 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOST=0.0.0.0
 ENV HSM_MOCK=true
+
+# Reuses the existing /api/health endpoint rather than adding a new one.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f "http://localhost:${PORT}/api/health" || exit 1
 
 # Run the binary
 CMD ["./qsafe-backend"]
