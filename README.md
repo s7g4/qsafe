@@ -107,3 +107,5 @@ push to `master` via `.github/workflows/docs.yml`.
 - **[METRICS.md](METRICS.md)**: Latency limits, memory zeroization parameters, binary overhead budgets, testing strategy, and CI/CD pipelines.
 - **[docs/adr/](docs/adr/)**: Architectural Decision Records (ADRs) tracking design updates and transitions.
 - **[DEVLOG.md](DEVLOG.md)**: Active engineering journal tracking bugs, root cause analyses, and updates.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Local setup, pre-PR checklist, and project conventions.
+- **[SECURITY.md](SECURITY.md)**: How to report a vulnerability, and known limitations that aren't new findings.
