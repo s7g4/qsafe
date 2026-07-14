@@ -11,10 +11,12 @@ Q-Safe is a Rust messaging gateway exploring post-quantum hybrid cryptography
 (ML-KEM / FIPS 203 + X25519) with a pluggable Hardware Security Module (HSM)
 abstraction for offloading key decapsulation.
 
-**Status: prototype.** The host-side crypto core and auth flow are covered
-by real integration tests (see below). The RP2040 hardware path is a
-designed-but-not-yet-implemented target - there is no firmware running on a
-device today. See [docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md)
+**Host-side crypto and auth: tested and complete.** The ML-KEM-768/X25519
+hybrid crypto core, Argon2id auth, and dual-JWT session flow are covered by
+real integration tests (see below). **Hardware path: in progress.** The
+RP2040 firmware that would run on physical HSM hardware doesn't exist yet -
+the host-side driver and protocol are ready for it, but there's no firmware
+to flash. See [docs/HSM_VERIFICATION_STATUS.md](docs/HSM_VERIFICATION_STATUS.md)
 for the exact, up-to-date breakdown of what's proven vs. unverified vs.
 unimplemented.
 <!-- ANCHOR_END: intro -->
