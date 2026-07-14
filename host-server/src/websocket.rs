@@ -12,6 +12,13 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
+/// Shared cap on message content size, enforced on both the HTTP
+/// `/api/messages/send` path and here on the WebSocket path. Without an
+/// explicit limit here, axum/tungstenite's default `max_message_size` is
+/// 64 MiB per WebSocket frame - this keeps both transports to the same
+/// trust boundary instead of the WebSocket path being 64x more permissive.
+pub const MAX_MESSAGE_BYTES: usize = 1_048_576;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum WSMessage {
     Join {
@@ -132,7 +139,8 @@ pub async fn handle_websocket(
     db: Database,
     user_id: Uuid,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(socket, registry, db, user_id))
+    ws.max_message_size(MAX_MESSAGE_BYTES)
+        .on_upgrade(move |socket| handle_socket(socket, registry, db, user_id))
 }
 
 async fn handle_socket(

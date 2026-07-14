@@ -9,7 +9,7 @@ use crate::{
     database::Database,
     error::QSafeError,
     hardware::HsmConnection,
-    websocket::{handle_websocket, WebSocketRegistry},
+    websocket::{handle_websocket, WebSocketRegistry, MAX_MESSAGE_BYTES},
 };
 use axum::{
     extract::{FromRef, Path, Query, State},
@@ -487,7 +487,7 @@ async fn send_message(
     let encrypted_content = STANDARD
         .decode(&payload.encrypted_content)
         .map_err(|_| QSafeError::BadRequest("Invalid base64 encrypted content".to_string()))?;
-    if encrypted_content.len() > 1_048_576 {
+    if encrypted_content.len() > MAX_MESSAGE_BYTES {
         return Err(QSafeError::ValidationError(
             "Encrypted content exceeds 1MB limit".to_string(),
         ));

@@ -239,3 +239,51 @@ async fn websocket_upgrade_requires_a_valid_query_token() {
         "expected websocket upgrade to fail with an invalid token"
     );
 }
+
+#[tokio::test]
+async fn websocket_rejects_a_message_larger_than_the_configured_limit() {
+    use futures_util::{SinkExt, StreamExt};
+    use qsafe_backend::websocket::MAX_MESSAGE_BYTES;
+    use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let username = unique_username("frank");
+
+    let res = client
+        .post(format!("{}/api/auth/register", app.base_url))
+        .json(&json!({
+            "username": username,
+            "email": format!("{username}@example.com"),
+            "password": "yet-another-strong-passphrase-2",
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    let access_token = body["data"]["access_token"].as_str().unwrap();
+
+    let url = format!("{}?token={}", app.ws_url, access_token);
+    let (mut ws, _) = connect_async(&url).await.expect("upgrade should succeed");
+
+    // Comfortably over MAX_MESSAGE_BYTES once wrapped in the WSMessage envelope.
+    let oversized_payload = "a".repeat(MAX_MESSAGE_BYTES + 1024);
+    let oversized = serde_json::json!({
+        "SendMessage": {
+            "content": oversized_payload,
+            "recipient_id": "00000000-0000-0000-0000-000000000000",
+        }
+    });
+    ws.send(Message::Text(oversized.to_string())).await.unwrap();
+
+    // The connection must be torn down rather than silently accepting an
+    // over-limit frame: the next read is either a Close frame or an error,
+    // never a normal application message.
+    match ws.next().await {
+        None => {}
+        Some(Ok(Message::Close(_))) => {}
+        Some(Err(_)) => {}
+        other => panic!("expected the oversized frame to close the connection, got {other:?}"),
+    }
+}
