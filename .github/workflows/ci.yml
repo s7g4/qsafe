@@ -57,7 +57,15 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        # sqlx::migrate!() embeds host-server/migrations/*.sql at compile
+        # time, but changes to those files alone don't reliably trigger a
+        # rebuild of the cached target/ dir (verified: a new migration
+        # added without touching any .rs file silently kept the stale,
+        # already-compiled binary - the FK-drop in migration 0004 didn't
+        # take effect until something forced a real recompile). Hashing
+        # the migrations directory into the cache key means any migration
+        # change busts the cache instead of restoring a stale build.
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'host-server/migrations/**') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
 
