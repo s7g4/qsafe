@@ -238,6 +238,13 @@ async fn register(
             "Password must be at least 8 characters".to_string(),
         ));
     }
+    if req.password.len() > 128 {
+        // Argon2id's hashing cost scales with input size; an unbounded
+        // password length turns registration into a CPU-exhaustion vector.
+        return Err(QSafeError::ValidationError(
+            "Password must be at most 128 characters".to_string(),
+        ));
+    }
 
     // Check if user exists
     if state
